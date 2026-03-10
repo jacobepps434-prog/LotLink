@@ -2,26 +2,26 @@ import { useState, useEffect, useRef } from "react";
 
 // ── DESIGN TOKENS ─────────────────────────────────────────────────────────────
 const C = {
-  bg:       "#0a0f0d",
-  bgCard:   "#0f1712",
-  bgDeep:   "#070c09",
-  border:   "#1a3028",
-  borderLt: "#122018",
-  amber:    "#4ECBA0",
-  amberLt:  "#6DDBB8",
-  cream:    "#EDFAF4",
-  creamDim: "#A8CFC0",
-  muted:    "#5A8A78",
-  mutedDim: "#2A4A3A",
-  error:    "#E05A5A",
-  green:    "#4ECBA0",
+  bg:       "#080C14",
+  bgCard:   "#0D1220",
+  bgDeep:   "#05080F",
+  border:   "#1E2A45",
+  borderLt: "#141E33",
+  amber:    "#F0A030",
+  amberLt:  "#F5B84A",
+  cream:    "#F2ECD8",
+  creamDim: "#C4B896",
+  muted:    "#7A8FA8",
+  mutedDim: "#3A4A60",
+  error:    "#D05A4A",
+  green:    "#6AAA88",
 };
 
 const BANDS = [
-  { id: "phish",  name: "Phish",            color: "#5BC8E8", icon: "~",  desc: "Vermont's masters of improvisation" },
-  { id: "billy",  name: "Billy Strings",    color: "#A8D878", icon: "//", desc: "Flatpicking the future of bluegrass" },
-  { id: "panic",  name: "Widespread Panic", color: "#E88A5A", icon: "^",  desc: "Athens, GA — Southern rock fire" },
-  { id: "goose",  name: "Goose",            color: "#78C8A8", icon: "o",  desc: "Connecticut's indie-groove powerhouse" },
+  { id: "phish",  name: "Phish",            color: "#4AA8D8", icon: "~",  desc: "Vermont's masters of improvisation" },
+  { id: "billy",  name: "Billy Strings",    color: "#C8A040", icon: "//", desc: "Flatpicking the future of bluegrass" },
+  { id: "panic",  name: "Widespread Panic", color: "#D06A40", icon: "^",  desc: "Athens, GA — Southern rock fire" },
+  { id: "goose",  name: "Goose",            color: "#60A880", icon: "o",  desc: "Connecticut's indie-groove powerhouse" },
 ];
 ``
 const AVATAR_COLORS = ["#5B8FA8","#8A7A5A","#A85A3A","#7A8A6A","#9A7A4A","#6A7A8A","#8A6A7A","#7A8A5A"];
