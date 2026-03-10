@@ -24,7 +24,6 @@ const BANDS = [
   { id: "goose",  name: "Goose",            color: "#78C8A8", icon: "o",  desc: "Connecticut's indie-groove powerhouse" },
 ];
 ``
-
 const AVATAR_COLORS = ["#5B8FA8","#8A7A5A","#A85A3A","#7A8A6A","#9A7A4A","#6A7A8A","#8A6A7A","#7A8A5A"];
 
 // ── HELPERS ───────────────────────────────────────────────────────────────────
