@@ -161,8 +161,11 @@ function AuthScreen({onAuth}){
             <p style={{color:C.sandDim,fontFamily:T.body,fontSize:"14px",lineHeight:"1.8",margin:"0 0 20px"}}>
               LotLink is a protocol web-based application still in production. This app was built by <span style={{color:C.teal,fontWeight:"600"}}>Jacob Epps (BoogMagoo)</span> as a safe and respectful social media platform strictly for the jam band scene.
             </p>
-            <p style={{color:C.sandDim,fontFamily:T.body,fontSize:"14px",lineHeight:"1.8",margin:"0 0 24px"}}>
+            <p style={{color:C.sandDim,fontFamily:T.body,fontSize:"14px",lineHeight:"1.8",margin:"0 0 16px"}}>
               By default, my profile <span style={{color:C.teal,fontWeight:"600"}}>BoogMagoo</span> is your friend from the jump. Please DM me with any requests or concerns. Thank you for playing along — have some fun and make some connections! 🤙
+            </p>
+            <p style={{color:C.mutedDim,fontFamily:T.body,fontSize:"13px",lineHeight:"1.7",margin:"0 0 24px",background:C.bgDeep,borderRadius:"12px",padding:"12px 14px",border:`1px solid ${C.border}`}}>
+              📱 <span style={{color:C.sandDim}}>This app is only available as a web client at this time. Save the URL to your phone's home screen for easy, app-like access.</span>
             </p>
             <Btn onClick={()=>setShowWelcome(false)}>Let's Go →</Btn>
           </div>
