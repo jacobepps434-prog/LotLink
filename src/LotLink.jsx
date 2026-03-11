@@ -30,8 +30,8 @@ const T={display:"'Playfair Display',Georgia,serif",head:"'Raleway','Trebuchet M
 
 // ── SUPABASE HELPERS ──────────────────────────────────────────────────────────
 const db={
-  async getUsers(){const{data}=await supabase.from("users").select("*");return(data||[]).map(u=>({...u,favBand:u.fav_band,avatarColor:u.avatar_color,avatarImg:u.avatar_img,friends:u.friends||[]}));},
-  async upsertUser(u){await supabase.from("users").upsert({id:u.id,name:u.name,email:u.email||"",phone:u.phone||"",bio:u.bio||"",fav_band:u.favBand||"phish",avatar_color:u.avatarColor||"",avatar_img:u.avatarImg||"",friends:u.friends||[]});},
+  async getUsers(){const{data}=await supabase.from("users").select("*");return(data||[]).map(u=>({...u,favBand:u.fav_band,avatarColor:u.avatar_color,avatarImg:u.avatar_img,friends:u.friends||[],password:u.password||""}));},
+  async upsertUser(u){await supabase.from("users").upsert({id:u.id,name:u.name,email:u.email||"",phone:u.phone||"",bio:u.bio||"",fav_band:u.favBand||"phish",avatar_color:u.avatarColor||"",avatar_img:u.avatarImg||"",friends:u.friends||[],password:u.password||""});},
   async getPosts(){const{data}=await supabase.from("posts").select("*").order("created_at",{ascending:false});return(data||[]).map(p=>({...p,userId:p.user_id,profileId:p.profile_id,wallImg:p.wall_img,likedBy:p.liked_by||[],comments:p.comments||[]}));},
   async upsertPost(p){await supabase.from("posts").upsert({id:p.id,user_id:p.userId,type:p.type,band:p.band,date:p.date,venue:p.venue,setlist:p.setlist,notes:p.notes,rating:p.rating,profile_id:p.profileId,text:p.text,wall_img:p.wallImg,liked_by:p.likedBy||[],comments:p.comments||[]});},
   async deletePost(id){await supabase.from("posts").delete().eq("id",id);},
@@ -127,7 +127,7 @@ function filterPill(active,color=C.teal){return{background:active?`${color}22`:"
 function AuthScreen({onAuth}){
   const[mode,setMode]=useState("login");
   const[tab,setTab]=useState("email");
-  const[form,setForm]=useState({name:"",email:"",phone:"",favBand:"phish",bio:""});
+  const[form,setForm]=useState({name:"",email:"",phone:"",favBand:"phish",bio:"",password:"",confirmPassword:""});
   const[err,setErr]=useState("");
   const[loading,setLoading]=useState(false);
   const set=(k,v)=>setForm(f=>({...f,[k]:v}));
@@ -136,12 +136,15 @@ function AuthScreen({onAuth}){
     if(mode==="signup"){
       if(!form.name.trim()){setErr("Display name required");setLoading(false);return;}
       if(tab==="email"&&!form.email.includes("@")){setErr("Valid email required");setLoading(false);return;}
+      if(!form.password||form.password.length<6){setErr("Password must be at least 6 characters");setLoading(false);return;}
+      if(form.password!==form.confirmPassword){setErr("Passwords don't match");setLoading(false);return;}
       await onAuth("signup",{...form,tab});
     }else{
       const val=tab==="email"?form.email:form.phone;
       if(!val){setErr(`Enter your ${tab==="email"?"email":"phone"}`);setLoading(false);return;}
+      if(!form.password){setErr("Password required");setLoading(false);return;}
       const ok=await onAuth("login",{...form,tab});
-      if(!ok)setErr("Account not found. Try signing up.");
+      if(!ok)setErr("Account not found or incorrect password.");
     }
     setLoading(false);
   };
@@ -172,6 +175,8 @@ function AuthScreen({onAuth}){
               <div><Label>Favorite Band</Label><select value={form.favBand} onChange={e=>set("favBand",e.target.value)} style={inp()}>{BANDS.map(b=><option key={b.id} value={b.id}>{b.name}</option>)}</select></div>
               <div><Label>Bio (optional)</Label><textarea placeholder="Tell the lot about yourself..." value={form.bio} onChange={e=>set("bio",e.target.value)} style={{...inp(),height:"70px",resize:"vertical"}}/></div>
             </>}
+            <div><Label>Password</Label><input type="password" placeholder={mode==="signup"?"Create a password (min 6 chars)":"Your password"} value={form.password} onChange={e=>set("password",e.target.value)} style={inp()}/></div>
+            {mode==="signup"&&<div><Label>Confirm Password</Label><input type="password" placeholder="Re-enter your password" value={form.confirmPassword} onChange={e=>set("confirmPassword",e.target.value)} style={inp()}/></div>}
             {err&&<div style={{color:C.error,fontFamily:T.body,fontSize:"13px",background:C.error+"15",padding:"10px 14px",borderRadius:"10px"}}>⚠ {err}</div>}
             <Btn onClick={submit} disabled={loading}>{loading?"...":mode==="login"?"Enter the Lot →":"Join the Scene →"}</Btn>
           </div>
@@ -847,13 +852,13 @@ export default function LotLink(){
     if(mode==="signup"){
       const id="u"+Date.now();
       const color=AVATAR_COLORS[Math.floor(Math.random()*AVATAR_COLORS.length)];
-      const newUser={id,name:form.name,email:form.tab==="email"?form.email:"",phone:form.tab==="phone"?form.phone:"",bio:form.bio||"",favBand:form.favBand,avatarColor:color,avatarImg:"",friends:[]};
+      const newUser={id,name:form.name,email:form.tab==="email"?form.email:"",phone:form.tab==="phone"?form.phone:"",bio:form.bio||"",favBand:form.favBand,avatarColor:color,avatarImg:"",friends:[],password:form.password};
       await db.upsertUser(newUser);setUsers(prev=>[...prev,newUser]);
       localStorage.setItem("lotlink-uid",id);setCurrentUserId(id);return true;
     }else{
       const val=form.tab==="email"?form.email:form.phone;
       const allUsers=await db.getUsers();setUsers(allUsers);
-      const found=allUsers.find(u=>u.email===val||u.phone===val);
+      const found=allUsers.find(u=>(u.email===val||u.phone===val)&&u.password===form.password);
       if(found){localStorage.setItem("lotlink-uid",found.id);setCurrentUserId(found.id);return true;}
       return false;
     }
