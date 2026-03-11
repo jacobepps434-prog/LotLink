@@ -32,8 +32,8 @@ const T={display:"'Playfair Display',Georgia,serif",head:"'Raleway','Trebuchet M
 const db={
   async getUsers(){const{data}=await supabase.from("users").select("*");return(data||[]).map(u=>({...u,favBand:u.fav_band,avatarColor:u.avatar_color,avatarImg:u.avatar_img,friends:u.friends||[],password:u.password||""}));},
   async upsertUser(u){await supabase.from("users").upsert({id:u.id,name:u.name,email:u.email||"",phone:u.phone||"",bio:u.bio||"",fav_band:u.favBand||"phish",avatar_color:u.avatarColor||"",avatar_img:u.avatarImg||"",friends:u.friends||[],password:u.password||""});},
-  async getPosts(){const{data}=await supabase.from("posts").select("*").order("created_at",{ascending:false});return(data||[]).map(p=>({...p,userId:p.user_id,profileId:p.profile_id,wallImg:p.wall_img,likedBy:p.liked_by||[],comments:p.comments||[],reactions:p.reactions||{},going:p.going||[]}));},
-  async upsertPost(p){await supabase.from("posts").upsert({id:p.id,user_id:p.userId,type:p.type,band:p.band,date:p.date,venue:p.venue,setlist:p.setlist,notes:p.notes,rating:p.rating,profile_id:p.profileId,text:p.text,wall_img:p.wallImg,liked_by:p.likedBy||[],comments:p.comments||[],reactions:p.reactions||{},going:p.going||[]});},
+  async getPosts(){const{data}=await supabase.from("posts").select("*").order("created_at",{ascending:false});return(data||[]).map(p=>({...p,userId:p.user_id,profileId:p.profile_id,wallImg:p.wall_img,likedBy:p.liked_by||[],comments:p.comments||[],reactions:p.reactions||{},going:p.going||[],sharedVideoId:p.shared_video_id||null}));},
+  async upsertPost(p){await supabase.from("posts").upsert({id:p.id,user_id:p.userId,type:p.type,band:p.band,date:p.date,venue:p.venue,setlist:p.setlist,notes:p.notes,rating:p.rating,profile_id:p.profileId,text:p.text,wall_img:p.wallImg,liked_by:p.likedBy||[],comments:p.comments||[],reactions:p.reactions||{},going:p.going||[],shared_video_id:p.sharedVideoId||null});},
   async deletePost(id){await supabase.from("posts").delete().eq("id",id);},
   async getTales(){const{data}=await supabase.from("tales").select("*").order("created_at",{ascending:false});return(data||[]).map(t=>({...t,userId:t.user_id,bandId:t.band_id,taleImg:t.tale_img}));},
   async upsertTale(t){await supabase.from("tales").upsert({id:t.id,user_id:t.userId,band_id:t.bandId,title:t.title,body:t.body,tale_img:t.taleImg||null,date:t.date});},
@@ -630,7 +630,7 @@ function ShowCard({post,users,currentUserId,onLike,onAddFriend,onComment,onDelet
 
 // ── WALL CARD ─────────────────────────────────────────────────────────────────
 const REACTIONS=[{emoji:"🔥",key:"fire"},{emoji:"🎸",key:"guitar"},{emoji:"🤙",key:"shaka"}];
-function WallCard({post,users,currentUserId,onLike,onReact,onComment,onDelete,onShareVideo}){
+function WallCard({post,users,videos,currentUserId,onLike,onReact,onComment,onDelete,onShareVideo}){
   const[expanded,setExpanded]=useState(false);
   const[commentText,setCommentText]=useState("");
   const[showReactions,setShowReactions]=useState(false);
@@ -639,8 +639,8 @@ function WallCard({post,users,currentUserId,onLike,onReact,onComment,onDelete,on
   const liked=post.likedBy?.includes(currentUserId);
   const reactions=post.reactions||{};
   const myReaction=Object.keys(reactions).find(k=>reactions[k]?.includes(currentUserId));
-  // detect shared video
-  const isSharedVideo=post.sharedVideoId&&post.sharedVideo;
+  const sharedVideo=post.sharedVideoId?(videos||[]).find(v=>v.id===post.sharedVideoId):null;
+  const isSharedVideo=!!sharedVideo;
   return(
     <div style={{background:C.bgCard,border:`1px solid ${C.border}`,borderRadius:"20px",overflow:"hidden",boxShadow:"0 4px 20px rgba(0,0,0,0.2)"}}>
       <div style={{padding:"16px 18px 12px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
@@ -653,11 +653,11 @@ function WallCard({post,users,currentUserId,onLike,onReact,onComment,onDelete,on
       <div style={{padding:"0 18px 14px"}}>
         {post.wallImg&&<img src={post.wallImg} alt="" style={{width:"100%",borderRadius:"12px",marginBottom:"10px",maxHeight:"300px",objectFit:"cover"}}/>}
         {post.text&&<div style={{color:C.sandDim,fontFamily:T.body,fontSize:"14px",lineHeight:"1.7",whiteSpace:"pre-wrap"}}>{post.text}</div>}
-        {isSharedVideo&&<div onClick={()=>onShareVideo&&onShareVideo(post.sharedVideo)} style={{marginTop:"10px",background:C.bgDeep,border:`1px solid ${C.border}`,borderRadius:"14px",overflow:"hidden",cursor:"pointer"}}>
-          <img src={ytThumb(post.sharedVideo.ytId)} alt="" style={{width:"100%",maxHeight:"180px",objectFit:"cover"}}/>
+        {isSharedVideo&&<div onClick={()=>onShareVideo&&onShareVideo(sharedVideo)} style={{marginTop:"10px",background:C.bgDeep,border:`1px solid ${C.border}`,borderRadius:"14px",overflow:"hidden",cursor:"pointer"}}>
+          <img src={ytThumb(sharedVideo.ytId)} alt="" style={{width:"100%",maxHeight:"180px",objectFit:"cover"}}/>
           <div style={{padding:"10px 14px",display:"flex",alignItems:"center",gap:"10px"}}>
             <span style={{color:C.teal,fontSize:"20px"}}>▶</span>
-            <div><div style={{color:C.white,fontFamily:T.head,fontSize:"13px",fontWeight:"700"}}>{post.sharedVideo.title}</div><BandTag bandId={post.sharedVideo.bandId} small/></div>
+            <div><div style={{color:C.white,fontFamily:T.head,fontSize:"13px",fontWeight:"700"}}>{sharedVideo.title}</div><BandTag bandId={sharedVideo.bandId} small/></div>
           </div>
         </div>}
       </div>
@@ -762,7 +762,7 @@ function AddTaleModal({onAdd,onClose,bandId}){
 }
 
 // ── PROFILE PAGE ──────────────────────────────────────────────────────────────
-function ProfilePage({user,posts,wallPosts,users,currentUserId,onUpdate,onBack,onAddWallPost,onLikeWall,onCommentWall,onDeleteWall,onSendDM,onAddFriend,onDeleteAccount,pendingOutgoing}){
+function ProfilePage({user,posts,wallPosts,videos,users,currentUserId,onUpdate,onBack,onAddWallPost,onLikeWall,onCommentWall,onDeleteWall,onSendDM,onAddFriend,onDeleteAccount,pendingOutgoing}){
   const[editing,setEditing]=useState(false);
   const[form,setForm]=useState({bio:user.bio||"",favBand:user.favBand||"phish",name:user.name||""});
   const[showWallModal,setShowWallModal]=useState(false);
@@ -826,7 +826,7 @@ function ProfilePage({user,posts,wallPosts,users,currentUserId,onUpdate,onBack,o
         {isOwn&&(wallTab==="posts"||wallTab==="all")&&<Btn onClick={()=>setShowWallModal(true)} small>+ Post</Btn>}
       </div>
       {wallTab==="all"&&(allActivity.length===0?<Empty>No activity yet.</Empty>:<div style={{display:"flex",flexDirection:"column",gap:"10px"}}>{allActivity.map(p=>{
-        if(p._type==="wall")return<WallCard key={`w${p.id}`} post={p} users={users} currentUserId={currentUserId} onLike={onLikeWall} onReact={()=>{}} onComment={onCommentWall} onDelete={onDeleteWall}/>;
+        if(p._type==="wall")return<WallCard key={`w${p.id}`} post={p} users={users} videos={videos} currentUserId={currentUserId} onLike={onLikeWall} onReact={()=>{}} onComment={onCommentWall} onDelete={onDeleteWall}/>;
         const band=BANDS.find(b=>b.id===p.band);
         return(<div key={`s${p.id}`} style={{background:C.bgCard,border:`1px solid ${C.border}`,borderLeft:`4px solid ${band?.color||C.teal}`,borderRadius:"16px",padding:"16px"}}>
           <div style={{display:"flex",justifyContent:"space-between",marginBottom:"8px"}}><BandTag bandId={p.band} small/><span style={{color:C.mutedDim,fontFamily:T.mono,fontSize:"11px"}}>{p.date}</span></div>
@@ -835,7 +835,7 @@ function ProfilePage({user,posts,wallPosts,users,currentUserId,onUpdate,onBack,o
         </div>);
       })}</div>)}
       {wallTab==="shows"&&(userShows.length===0?<Empty>No shows logged yet.</Empty>:<div style={{display:"flex",flexDirection:"column",gap:"10px"}}>{userShows.map(p=>{const band=BANDS.find(b=>b.id===p.band);return(<div key={p.id} style={{background:C.bgCard,border:`1px solid ${C.border}`,borderLeft:`4px solid ${band?.color||C.teal}`,borderRadius:"16px",padding:"16px"}}><div style={{display:"flex",justifyContent:"space-between",marginBottom:"8px"}}><BandTag bandId={p.band} small/><span style={{color:C.mutedDim,fontFamily:T.mono,fontSize:"11px"}}>{p.date}</span></div><div style={{color:C.white,fontFamily:T.display,fontSize:"15px",fontWeight:"700",marginBottom:"4px"}}>{p.venue}</div><div style={{color:band?.color||C.teal,fontSize:"13px",letterSpacing:"2px"}}>{stars(p.rating)}</div></div>);})}</div>)}
-      {wallTab==="posts"&&(userWall.length===0?<Empty>No wall posts yet.</Empty>:<div style={{display:"flex",flexDirection:"column",gap:"10px"}}>{userWall.map(p=><WallCard key={p.id} post={p} users={users} currentUserId={currentUserId} onLike={onLikeWall} onReact={()=>{}} onComment={onCommentWall} onDelete={onDeleteWall}/>)}</div>)}
+      {wallTab==="posts"&&(userWall.length===0?<Empty>No wall posts yet.</Empty>:<div style={{display:"flex",flexDirection:"column",gap:"10px"}}>{userWall.map(p=><WallCard key={p.id} post={p} users={users} videos={videos} currentUserId={currentUserId} onLike={onLikeWall} onReact={()=>{}} onComment={onCommentWall} onDelete={onDeleteWall}/>)}</div>)}
       {showWallModal&&<AddWallPostModal onAdd={data=>onAddWallPost({...data,profileId:user.id})} onClose={()=>setShowWallModal(false)}/>}
     </div>
   );
@@ -1084,7 +1084,7 @@ export default function LotLink(){
     }
   };
   const handleShareVideo=async(video,caption)=>{
-    const p={id:Date.now(),userId:currentUserId,type:"wall",profileId:currentUserId,text:caption||"",wallImg:null,sharedVideoId:video.id,sharedVideo:video,date:new Date().toISOString().slice(0,10),likedBy:[],comments:[],reactions:{}};
+    const p={id:Date.now(),userId:currentUserId,type:"wall",profileId:currentUserId,text:caption||"",wallImg:null,sharedVideoId:video.id,date:new Date().toISOString().slice(0,10),likedBy:[],comments:[],reactions:{}};
     await db.upsertPost(p);setPosts(prev=>[p,...prev]);
   };
   const handleDeleteTale=async id=>{setTales(prev=>prev.filter(t=>t.id!==id));await db.deleteTale(id);};
@@ -1133,7 +1133,7 @@ export default function LotLink(){
   const pendingFriendReqs=notifications.filter(n=>n.text==="__FRIENDREQ__").length;
   const totalNotifBadge=unreadNotifs+pendingFriendReqs;
   const unreadDMs=messages.filter(m=>m.toId===currentUserId&&!m.read).length;
-  const profileProps={posts,wallPosts,users,currentUserId,onUpdate:handleUpdateProfile,onAddWallPost:addWallPost,onLikeWall:handleLike,onCommentWall:handleComment,onDeleteWall:handleDeletePost,onAddFriend:handleSendFriendRequest,onDeleteAccount:handleDeleteAccount,pendingOutgoing};
+  const profileProps={posts,wallPosts,videos,users,currentUserId,onUpdate:handleUpdateProfile,onAddWallPost:addWallPost,onLikeWall:handleLike,onCommentWall:handleComment,onDeleteWall:handleDeletePost,onAddFriend:handleSendFriendRequest,onDeleteAccount:handleDeleteAccount,pendingOutgoing};
   const navSetTab=t=>{setViewProfile(null);setViewGroup(null);setShowDMs(false);setTab(t);};
   const navProps={tab,setTab:navSetTab,onLogout:handleLogout,unreadNotifs:totalNotifBadge,unreadDMs,onOpenNotifs:()=>{setShowNotifs(!showNotifs);if(!showNotifs)setTimeout(handleMarkNotifsRead,1500);},onOpenDMs:()=>setShowDMs(true),onOpenSearch:()=>setShowSearch(true)};
 
@@ -1164,7 +1164,7 @@ export default function LotLink(){
         </div>
         {feedPosts.length===0
           ?<Empty>{friends.length===0?"Add some friends to see their posts here 〜":"No posts yet — be the first to share something!"}</Empty>
-          :<div style={{display:"flex",flexDirection:"column",gap:"14px"}}>{feedPosts.map(p=><WallCard key={p.id} post={p} users={users} currentUserId={currentUserId} onLike={handleLike} onReact={handleReact} onComment={handleComment} onDelete={handleDeletePost} onShareVideo={v=>{setSearchPlayingVideo(v);}}/>)}</div>}
+          :<div style={{display:"flex",flexDirection:"column",gap:"14px"}}>{feedPosts.map(p=><WallCard key={p.id} post={p} users={users} videos={videos} currentUserId={currentUserId} onLike={handleLike} onReact={handleReact} onComment={handleComment} onDelete={handleDeletePost} onShareVideo={v=>setSearchPlayingVideo(v)}/>)}</div>}
       </>)}
       {tab==="groups"&&(<>
         <div style={{color:C.muted,fontFamily:T.head,fontSize:"11px",letterSpacing:"3px",fontWeight:"700",marginBottom:"16px"}}>BAND GROUPS</div>
