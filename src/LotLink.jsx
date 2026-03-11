@@ -369,7 +369,7 @@ function NotifPanel({notifications,users,onClose,onMarkRead,onAcceptFriend,onDec
             const from=users.find(u=>u.id===n.fromId);
             const isFriendReq=n.text==="__FRIENDREQ__";
             const isFriendAcc=n.text==="__FRIENDACC__";
-            const isClickable=!isFriendReq&&(n.refType==="post"||n.refType==="jams"||n.refType==="profile");
+            const isClickable=!isFriendReq&&!isFriendAcc;
             const displayText=isFriendReq?`${from?.name||"Someone"} sent you a friend request`:isFriendAcc?`${from?.name||"Someone"} accepted your friend request`:n.text;
             return(
               <div key={i} onClick={()=>{if(isClickable){onNavigate(n);onClose();}}}
@@ -744,7 +744,7 @@ function ShowCard({post,users,currentUserId,onLike,onAddFriend,onComment,onDelet
 
 // ── WALL CARD ─────────────────────────────────────────────────────────────────
 const REACTIONS=[{emoji:"🔥",key:"fire"},{emoji:"🎸",key:"guitar"},{emoji:"🤙",key:"shaka"}];
-function WallCard({post,users,currentUserId,onLike,onReact,onComment,onDelete,onShareVideo,onViewProfile,onView}){
+function WallCard({post,users,currentUserId,onLike,onReact,onComment,onDelete,onShareVideo,onViewProfile,onView,highlight}){
   const[expanded,setExpanded]=useState(false);
   const[commentText,setCommentText]=useState("");
   const[showReactionPicker,setShowReactionPicker]=useState(false);
@@ -762,7 +762,7 @@ function WallCard({post,users,currentUserId,onLike,onReact,onComment,onDelete,on
   useEffect(()=>{if(!viewed.current){viewed.current=true;onView&&onView(post.id);}},[]);
 
   return(
-    <div style={{background:C.bgCard,border:`1px solid ${C.border}`,borderRadius:"20px",overflow:"hidden",boxShadow:"0 4px 20px rgba(0,0,0,0.2)"}}>
+    <div id={`post-${post.id}`} style={{background:C.bgCard,border:`1px solid ${highlight?C.teal:C.border}`,borderRadius:"20px",overflow:"hidden",boxShadow:highlight?`0 0 0 2px ${C.teal},0 4px 20px rgba(0,0,0,0.2)`:"0 4px 20px rgba(0,0,0,0.2)",transition:"box-shadow 0.3s,border-color 0.3s"}}>
       <div style={{padding:"16px 18px 12px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
         <div style={{display:"flex",gap:"10px",alignItems:"center",cursor:"pointer"}} onClick={()=>onViewProfile&&onViewProfile(author)}>
           <Avatar user={author} size={36}/>
@@ -1147,6 +1147,7 @@ export default function LotLink(){
   const[tab,setTab]=useState("feed");
   const[showDisclaimer,setShowDisclaimer]=useState(true);
   const[sentRequests,setSentRequests]=useState([]);
+  const[highlightPostId,setHighlightPostId]=useState(null);
   const[showAddPost,setShowAddPost]=useState(false);
   const[viewProfile,setViewProfile]=useState(null);
   const[viewGroup,setViewGroup]=useState(null);
@@ -1280,15 +1281,29 @@ export default function LotLink(){
   };
   const handleDeleteTale=async id=>{setTales(prev=>prev.filter(t=>t.id!==id));await db.deleteTale(id);};
   const handleNotifNavigate=n=>{
-    if(n.refType==="post"){
-      // find the post author and navigate to their profile, or go to feed
-      const post=posts.find(p=>String(p.id)===String(n.refId));
-      if(post){const author=users.find(u=>u.id===post.userId);if(author)setViewProfile(author);}
-      setTab("feed");
-    } else if(n.refType==="jams"){
+    // Route by refType if available, otherwise fall back to text pattern matching
+    const type=n.refType||(n.text?.includes("video")||n.text?.includes("Jams TV")?"jams":"post");
+    if(type==="jams"){
       setTab("jams");
-    } else if(n.refType==="profile"){
+    } else if(type==="profile"){
       const u=users.find(u=>u.id===n.refId);if(u)setViewProfile(u);
+    } else {
+      // post — try to find the post and navigate to the author's profile or just feed
+      setTab("feed");
+      if(n.refId){
+        const post=posts.find(p=>String(p.id)===String(n.refId));
+        if(post){
+          setHighlightPostId(String(n.refId));
+          setTimeout(()=>{
+            const el=document.getElementById(`post-${n.refId}`);
+            if(el)el.scrollIntoView({behavior:"smooth",block:"center"});
+          },300);
+        }
+      } else if(n.fromId){
+        // old notif without refId — navigate to the sender's profile as best guess
+        const sender=users.find(u=>u.id===n.fromId);
+        if(sender)setViewProfile(sender);
+      }
     }
   };
   const handleDeletePost=async id=>{setPosts(prev=>prev.filter(p=>p.id!==id));await db.deletePost(id);};
@@ -1411,7 +1426,7 @@ export default function LotLink(){
         </div>
         {feedPosts.length===0
           ?<Empty>{friends.length===0?"Add some friends to see their posts here 〜":"No posts yet — be the first to share something!"}</Empty>
-          :<div style={{display:"flex",flexDirection:"column",gap:"14px"}}>{feedPosts.map(p=><WallCard key={p.id} post={p} users={users} currentUserId={currentUserId} onLike={handleLike} onReact={handleReact} onComment={handleComment} onDelete={handleDeletePost} onShareVideo={v=>setSearchPlayingVideo(v)} onViewProfile={setViewProfile} onView={handleView}/>)}</div>}
+          :<div style={{display:"flex",flexDirection:"column",gap:"14px"}}>{feedPosts.map(p=>{const isHighlight=String(p.id)===String(highlightPostId);if(isHighlight)setTimeout(()=>setHighlightPostId(null),3000);return<WallCard key={p.id} post={p} users={users} currentUserId={currentUserId} onLike={handleLike} onReact={handleReact} onComment={handleComment} onDelete={handleDeletePost} onShareVideo={v=>setSearchPlayingVideo(v)} onViewProfile={setViewProfile} onView={handleView} highlight={isHighlight}/>;})}</div>}
       </>)}
       {tab==="groups"&&(<>
         <div style={{color:C.muted,fontFamily:T.head,fontSize:"11px",letterSpacing:"3px",fontWeight:"700",marginBottom:"16px"}}>BAND GROUPS</div>
