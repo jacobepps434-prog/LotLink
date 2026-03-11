@@ -46,6 +46,28 @@ const db={
   async getNotifications(uid){const{data}=await supabase.from("notifications").select("*").eq("to_id",uid).order("created_at",{ascending:false});return(data||[]).map(n=>({...n,toId:n.to_id,fromId:n.from_id}));},
   async addNotification(n){await supabase.from("notifications").insert({to_id:n.toId,from_id:n.fromId,text:n.text,read:false});},
   async markNotifsRead(uid){await supabase.from("notifications").update({read:true}).eq("to_id",uid);},
+  async deleteUser(uid){
+    await supabase.from("posts").delete().eq("user_id",uid);
+    await supabase.from("tales").delete().eq("user_id",uid);
+    await supabase.from("messages").delete().or(`from_id.eq.${uid},to_id.eq.${uid}`);
+    await supabase.from("notifications").delete().or(`to_id.eq.${uid},from_id.eq.${uid}`);
+    await supabase.from("users").delete().eq("id",uid);
+  },
+  async sendFriendRequest(fromId,toId){await supabase.from("notifications").insert({to_id:toId,from_id:fromId,text:`__FRIENDREQ__`,read:false});},
+  async acceptFriendRequest(notifId,meId,fromId,allUsers){
+    const me=allUsers.find(u=>u.id===meId);
+    const other=allUsers.find(u=>u.id===fromId);
+    const updMe={...me,friends:[...(me.friends||[]).filter(x=>x!==fromId),fromId]};
+    const updOther={...other,friends:[...(other.friends||[]).filter(x=>x!==meId),meId]};
+    await Promise.all([
+      supabase.from("users").upsert({id:meId,name:updMe.name,email:updMe.email||"",phone:updMe.phone||"",bio:updMe.bio||"",fav_band:updMe.favBand||"phish",avatar_color:updMe.avatarColor||"",avatar_img:updMe.avatarImg||"",friends:updMe.friends}),
+      supabase.from("users").upsert({id:fromId,name:updOther.name,email:updOther.email||"",phone:updOther.phone||"",bio:updOther.bio||"",fav_band:updOther.favBand||"phish",avatar_color:updOther.avatarColor||"",avatar_img:updOther.avatarImg||"",friends:updOther.friends}),
+      supabase.from("notifications").delete().eq("id",notifId),
+      supabase.from("notifications").insert({to_id:fromId,from_id:meId,text:`__FRIENDACC__`,read:false}),
+    ]);
+    return{updMe,updOther};
+  },
+  async declineFriendRequest(notifId){await supabase.from("notifications").delete().eq("id",notifId);},
 };
 
 // ── UI HELPERS ────────────────────────────────────────────────────────────────
@@ -128,7 +150,8 @@ function AuthScreen({onAuth}){
       <div style={{width:"100%",maxWidth:"420px"}}>
         <div style={{textAlign:"center",marginBottom:"36px"}}>
           <div style={{display:"flex",justifyContent:"center",marginBottom:"16px"}}><Logo size="big"/></div>
-          <p style={{color:C.muted,fontFamily:T.body,fontSize:"14px",margin:0}}>Where heads connect, shows get logged, and the lot never ends.</p>
+          <p style={{color:C.muted,fontFamily:T.body,fontSize:"14px",margin:"0 0 8px"}}>Where heads connect, shows get logged, and the lot never ends.</p>
+          <p style={{color:C.mutedDim,fontFamily:T.body,fontSize:"11px",margin:0,letterSpacing:"0.5px"}}>An app for the jam scene, created by <span style={{color:C.teal,fontWeight:"600"}}>Jacob A. Epps</span></p>
         </div>
         <div style={{background:C.bgCard,border:`1px solid ${C.border}`,borderRadius:"24px",padding:"32px",boxShadow:`0 20px 60px rgba(0,0,0,0.5)`}}>
           <div style={{display:"flex",background:C.bgDeep,borderRadius:"16px",padding:"4px",marginBottom:"24px"}}>
@@ -197,26 +220,35 @@ function BottomNav({tab,setTab,unreadNotifs,unreadDMs}){
 }
 
 // ── NOTIFICATIONS ─────────────────────────────────────────────────────────────
-function NotifPanel({notifications,users,onClose,onMarkRead}){
+function NotifPanel({notifications,users,onClose,onMarkRead,onAcceptFriend,onDeclineFriend}){
   return(
     <div style={{position:"fixed",inset:0,zIndex:200}} onClick={e=>e.target===e.currentTarget&&onClose()}>
-      <div style={{position:"absolute",top:"64px",right:"20px",background:C.bgCard,border:`1px solid ${C.border}`,borderRadius:"20px",width:"340px",maxHeight:"480px",overflowY:"auto",boxShadow:`0 20px 60px rgba(0,0,0,0.7)`}}>
+      <div style={{position:"absolute",top:"64px",right:"20px",background:C.bgCard,border:`1px solid ${C.border}`,borderRadius:"20px",width:"360px",maxHeight:"500px",overflowY:"auto",boxShadow:`0 20px 60px rgba(0,0,0,0.7)`}}>
         <div style={{padding:"16px 20px",borderBottom:`1px solid ${C.border}`,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
           <span style={{color:C.white,fontFamily:T.head,fontWeight:"700",fontSize:"15px"}}>Notifications</span>
           <button onClick={onMarkRead} style={{background:"none",border:"none",color:C.teal,fontSize:"12px",fontFamily:T.head,cursor:"pointer",fontWeight:"700"}}>Mark all read</button>
         </div>
         {notifications.length===0
           ?<div style={{padding:"32px",textAlign:"center",color:C.muted,fontFamily:T.body,fontSize:"14px"}}>You're all caught up 〜</div>
-          :notifications.map((n,i)=>{const from=users.find(u=>u.id===n.fromId);return(
-            <div key={i} style={{padding:"14px 20px",borderBottom:`1px solid ${C.borderLt}`,background:n.read?"none":`${C.teal}08`,display:"flex",gap:"12px",alignItems:"flex-start"}}>
-              <Avatar user={from} size={36}/>
-              <div style={{flex:1}}>
-                <div style={{color:n.read?C.sandDim:C.white,fontFamily:T.body,fontSize:"13px",lineHeight:"1.5"}}>{n.text}</div>
-                <div style={{color:C.mutedDim,fontFamily:T.mono,fontSize:"11px",marginTop:"3px"}}>{new Date(n.created_at).toLocaleTimeString()}</div>
+          :notifications.map((n,i)=>{
+            const from=users.find(u=>u.id===n.fromId);
+            const isFriendReq=n.text==="__FRIENDREQ__";
+            const isFriendAcc=n.text==="__FRIENDACC__";
+            const displayText=isFriendReq?`${from?.name||"Someone"} sent you a friend request`:isFriendAcc?`${from?.name||"Someone"} accepted your friend request`:n.text;
+            return(
+              <div key={i} style={{padding:"14px 20px",borderBottom:`1px solid ${C.borderLt}`,background:n.read?"none":`${C.teal}08`,display:"flex",gap:"12px",alignItems:"flex-start"}}>
+                <Avatar user={from} size={36}/>
+                <div style={{flex:1}}>
+                  <div style={{color:n.read?C.sandDim:C.white,fontFamily:T.body,fontSize:"13px",lineHeight:"1.5"}}>{displayText}</div>
+                  <div style={{color:C.mutedDim,fontFamily:T.mono,fontSize:"11px",marginTop:"3px"}}>{new Date(n.created_at).toLocaleTimeString()}</div>
+                  {isFriendReq&&<div style={{display:"flex",gap:"8px",marginTop:"10px"}}>
+                    <button onClick={()=>onAcceptFriend(n.id,n.fromId)} style={{background:G.teal,border:"none",color:C.bgDeep,borderRadius:"16px",padding:"6px 14px",fontFamily:T.head,fontSize:"11px",fontWeight:"700",cursor:"pointer"}}>✓ Accept</button>
+                    <button onClick={()=>onDeclineFriend(n.id)} style={{background:"none",border:`1px solid ${C.border}`,color:C.muted,borderRadius:"16px",padding:"6px 14px",fontFamily:T.head,fontSize:"11px",fontWeight:"700",cursor:"pointer"}}>✕ Decline</button>
+                  </div>}
+                </div>
+                {!n.read&&!isFriendReq&&<div style={{width:"8px",height:"8px",borderRadius:"50%",background:C.teal,flexShrink:0,marginTop:"4px"}}/>}
               </div>
-              {!n.read&&<div style={{width:"8px",height:"8px",borderRadius:"50%",background:C.teal,flexShrink:0,marginTop:"4px"}}/>}
-            </div>
-          );})
+            );})
         }
       </div>
     </div>
@@ -365,7 +397,7 @@ function JamsTV({videos,currentUserId,onSubmitVideo}){
 }
 
 // ── SHOW CARD ─────────────────────────────────────────────────────────────────
-function ShowCard({post,users,currentUserId,onLike,onAddFriend,onComment,onDeletePost,onViewProfile}){
+function ShowCard({post,users,currentUserId,onLike,onAddFriend,onComment,onDeletePost,onViewProfile,pendingOutgoing}){
   const[expanded,setExpanded]=useState(false);
   const[commentText,setCommentText]=useState("");
   const author=users.find(u=>u.id===post.userId);
@@ -373,6 +405,7 @@ function ShowCard({post,users,currentUserId,onLike,onAddFriend,onComment,onDelet
   const isOwn=post.userId===currentUserId;
   const currentUser=users.find(u=>u.id===currentUserId);
   const alreadyFriend=currentUser?.friends?.includes(post.userId);
+  const isPending=(pendingOutgoing||[]).includes(post.userId);
   const liked=post.likedBy?.includes(currentUserId);
   return(
     <div style={{background:C.bgCard,border:`1px solid ${C.border}`,borderRadius:"20px",overflow:"hidden",boxShadow:"0 4px 24px rgba(0,0,0,0.25)"}}>
@@ -386,7 +419,8 @@ function ShowCard({post,users,currentUserId,onLike,onAddFriend,onComment,onDelet
         </div>
         <div style={{display:"flex",alignItems:"center",gap:"8px",flexWrap:"wrap",justifyContent:"flex-end"}}>
           <BandTag bandId={post.band} small/>
-          {!isOwn&&!alreadyFriend&&<Btn onClick={()=>onAddFriend(post.userId)} variant="ghost" small>+ Friend</Btn>}
+          {!isOwn&&!alreadyFriend&&!isPending&&<Btn onClick={()=>onAddFriend(post.userId)} variant="ghost" small>+ Friend</Btn>}
+          {!isOwn&&!alreadyFriend&&isPending&&<span style={{color:C.mutedDim,fontFamily:T.head,fontSize:"11px",fontWeight:"700"}}>⏳ Pending</span>}
           {alreadyFriend&&!isOwn&&<span style={{color:C.green,fontFamily:T.head,fontSize:"11px",fontWeight:"700"}}>✓ Friends</span>}
           {isOwn&&<button onClick={()=>onDeletePost(post.id)} style={{background:"none",border:"none",color:C.mutedDim,cursor:"pointer",fontSize:"18px",padding:"0 4px"}}>×</button>}
         </div>
@@ -542,7 +576,7 @@ function AddTaleModal({onAdd,onClose,bandId}){
 }
 
 // ── PROFILE PAGE ──────────────────────────────────────────────────────────────
-function ProfilePage({user,posts,wallPosts,users,currentUserId,onUpdate,onBack,onAddWallPost,onLikeWall,onCommentWall,onDeleteWall,onSendDM,onAddFriend}){
+function ProfilePage({user,posts,wallPosts,users,currentUserId,onUpdate,onBack,onAddWallPost,onLikeWall,onCommentWall,onDeleteWall,onSendDM,onAddFriend,onDeleteAccount,pendingOutgoing}){
   const[editing,setEditing]=useState(false);
   const[form,setForm]=useState({bio:user.bio||"",favBand:user.favBand||"phish",name:user.name||""});
   const[showWallModal,setShowWallModal]=useState(false);
@@ -551,6 +585,7 @@ function ProfilePage({user,posts,wallPosts,users,currentUserId,onUpdate,onBack,o
   const isOwn=user.id===currentUserId;
   const currentUser=users.find(u=>u.id===currentUserId);
   const isFriend=currentUser?.friends?.includes(user.id);
+  const isPendingOut=(pendingOutgoing||[]).includes(user.id);
   const userShows=posts.filter(p=>p.userId===user.id&&p.type==="show").sort((a,b)=>new Date(b.date)-new Date(a.date));
   const userWall=wallPosts.filter(p=>p.profileId===user.id).sort((a,b)=>new Date(b.date)-new Date(a.date));
   const favBand=BANDS.find(b=>b.id===user.favBand);
@@ -576,8 +611,15 @@ function ProfilePage({user,posts,wallPosts,users,currentUserId,onUpdate,onBack,o
               </div>
             </div>
             <div style={{display:"flex",gap:"8px"}}>
-              {isOwn?<Btn onClick={()=>{if(editing)onUpdate(user.id,{bio:form.bio,favBand:form.favBand,name:form.name});setEditing(!editing);}} variant={editing?"primary":"ghost"} small>{editing?"Save":"Edit Profile"}</Btn>
-                :<>{!isFriend&&<Btn onClick={()=>onAddFriend&&onAddFriend(user.id)} small>+ Add Friend</Btn>}{isFriend&&<Btn onClick={()=>onSendDM&&onSendDM(user)} variant="secondary" small>💬 Message</Btn>}</>}
+              {isOwn?<>
+                <Btn onClick={()=>{if(editing)onUpdate(user.id,{bio:form.bio,favBand:form.favBand,name:form.name});setEditing(!editing);}} variant={editing?"primary":"ghost"} small>{editing?"Save":"Edit Profile"}</Btn>
+                {onDeleteAccount&&<Btn onClick={onDeleteAccount} variant="ghost" small style={{color:C.error,borderColor:C.error+"44"}}>Delete Account</Btn>}
+              </>
+                :<>
+                  {!isFriend&&!isPendingOut&&<Btn onClick={()=>onAddFriend&&onAddFriend(user.id)} small>+ Add Friend</Btn>}
+                  {!isFriend&&isPendingOut&&<span style={{color:C.mutedDim,fontFamily:T.head,fontSize:"11px",fontWeight:"700",padding:"7px 0"}}>⏳ Request Sent</span>}
+                  {isFriend&&<Btn onClick={()=>onSendDM&&onSendDM(user)} variant="secondary" small>💬 Message</Btn>}
+                </>}
             </div>
           </div>
           <Divider/>
@@ -721,13 +763,26 @@ export default function LotLink(){
     await db.upsertPost(updated);
     if(!liked&&post.userId!==currentUserId)await db.addNotification({toId:post.userId,fromId:currentUserId,text:`${currentUser?.name} liked your post at ${post.venue}`});
   };
-  const handleAddFriend=async userId=>{
-    const me={...currentUser,friends:[...(currentUser.friends||[]),userId]};
-    const other=users.find(u=>u.id===userId);
-    const otherUp={...other,friends:[...(other?.friends||[]),currentUserId]};
-    setUsers(prev=>prev.map(u=>u.id===currentUserId?me:u.id===userId?otherUp:u));
-    await Promise.all([db.upsertUser(me),db.upsertUser(otherUp)]);
-    await db.addNotification({toId:userId,fromId:currentUserId,text:`${currentUser?.name} added you as a friend!`});
+  const handleSendFriendRequest=async userId=>{
+    const alreadyPending=notifications.some(n=>n.fromId===currentUserId&&n.toId===userId&&n.text==="__FRIENDREQ__");
+    if(alreadyPending)return;
+    await db.sendFriendRequest(currentUserId,userId);
+    setNotifications(prev=>[...prev,{toId:userId,fromId:currentUserId,text:"__FRIENDREQ__",read:false,id:Date.now(),created_at:new Date().toISOString()}]);
+  };
+  const handleAcceptFriend=async(notifId,fromId)=>{
+    const result=await db.acceptFriendRequest(notifId,currentUserId,fromId,users);
+    setUsers(prev=>prev.map(u=>u.id===currentUserId?{...u,...result.updMe,favBand:result.updMe.fav_band||result.updMe.favBand}:u.id===fromId?{...u,...result.updOther,favBand:result.updOther.fav_band||result.updOther.favBand}:u));
+    setNotifications(prev=>prev.filter(n=>n.id!==notifId));
+  };
+  const handleDeclineFriend=async notifId=>{
+    await db.declineFriendRequest(notifId);
+    setNotifications(prev=>prev.filter(n=>n.id!==notifId));
+  };
+  const handleDeleteAccount=async()=>{
+    if(!window.confirm("Delete your account? This cannot be undone. All your posts, shows, and tales will be removed."))return;
+    await db.deleteUser(currentUserId);
+    localStorage.removeItem("lotlink-uid");
+    setCurrentUserId(null);
   };
   const handleComment=async(postId,text)=>{
     const post=posts.find(p=>p.id===postId);if(!post)return;
@@ -756,13 +811,14 @@ export default function LotLink(){
   const handleMarkNotifsRead=async()=>{setNotifications(prev=>prev.map(n=>({...n,read:true})));await db.markNotifsRead(currentUserId);};
   const handleLogout=()=>{localStorage.removeItem("lotlink-uid");setCurrentUserId(null);};
 
+  const pendingOutgoing=notifications.filter(n=>n.fromId===currentUserId&&n.text==="__FRIENDREQ__").map(n=>n.toId);
   const showPosts=posts.filter(p=>p.type==="show");
   const wallPosts=posts.filter(p=>p.type==="wall");
   const feedPosts=showPosts.filter(p=>feedFilter==="all"||p.band===feedFilter).sort((a,b)=>new Date(b.created_at||b.date)-new Date(a.created_at||a.date));
   const friends=(currentUser?.friends||[]).map(id=>users.find(u=>u.id===id)).filter(Boolean);
   const unreadNotifs=notifications.filter(n=>!n.read).length;
   const unreadDMs=messages.filter(m=>m.toId===currentUserId&&!m.read).length;
-  const profileProps={posts,wallPosts,users,currentUserId,onUpdate:handleUpdateProfile,onAddWallPost:addWallPost,onLikeWall:handleLike,onCommentWall:handleComment,onDeleteWall:handleDeletePost,onAddFriend:handleAddFriend};
+  const profileProps={posts,wallPosts,users,currentUserId,onUpdate:handleUpdateProfile,onAddWallPost:addWallPost,onLikeWall:handleLike,onCommentWall:handleComment,onDeleteWall:handleDeletePost,onAddFriend:handleSendFriendRequest,onDeleteAccount:handleDeleteAccount,pendingOutgoing};
   const navSetTab=t=>{setViewProfile(null);setViewGroup(null);setShowDMs(false);setTab(t);};
   const navProps={tab,setTab:navSetTab,onLogout:handleLogout,unreadNotifs,unreadDMs,onOpenNotifs:()=>setShowNotifs(!showNotifs),onOpenDMs:()=>setShowDMs(true)};
 
@@ -771,7 +827,7 @@ export default function LotLink(){
       {!isMobile&&<TopBar {...navProps}/>}
       {children}
       {isMobile&&<BottomNav tab={tab} setTab={navSetTab} unreadNotifs={unreadNotifs} unreadDMs={unreadDMs}/>}
-      {showNotifs&&<NotifPanel notifications={notifications} users={users} onClose={()=>setShowNotifs(false)} onMarkRead={handleMarkNotifsRead}/>}
+      {showNotifs&&<NotifPanel notifications={notifications} users={users} onClose={()=>setShowNotifs(false)} onMarkRead={handleMarkNotifsRead} onAcceptFriend={handleAcceptFriend} onDeclineFriend={handleDeclineFriend}/>}
     </div>
   );
 
@@ -790,7 +846,7 @@ export default function LotLink(){
           <Btn onClick={()=>setShowAddPost(true)}>+ Log Show</Btn>
         </div>
         {feedPosts.length===0?<Empty>No shows logged yet. Be the first to drop a show!</Empty>
-          :<div style={{display:"flex",flexDirection:"column",gap:"14px"}}>{feedPosts.map(p=><ShowCard key={p.id} post={p} users={users} currentUserId={currentUserId} onLike={handleLike} onAddFriend={handleAddFriend} onComment={handleComment} onDeletePost={handleDeletePost} onViewProfile={setViewProfile}/>)}</div>}
+          :<div style={{display:"flex",flexDirection:"column",gap:"14px"}}>{feedPosts.map(p=><ShowCard key={p.id} post={p} users={users} currentUserId={currentUserId} onLike={handleLike} onAddFriend={handleSendFriendRequest} onComment={handleComment} onDeletePost={handleDeletePost} onViewProfile={setViewProfile} pendingOutgoing={pendingOutgoing}/>)}</div>}
       </>)}
       {tab==="groups"&&(<>
         <div style={{color:C.muted,fontFamily:T.head,fontSize:"11px",letterSpacing:"3px",fontWeight:"700",marginBottom:"16px"}}>BAND GROUPS</div>
@@ -825,7 +881,7 @@ export default function LotLink(){
             :users.filter(u=>u.id!==currentUserId&&!friends.find(f=>f.id===u.id)).map(u=>(
               <div key={u.id} style={{background:C.bgCard,border:`1px solid ${C.border}`,borderRadius:"18px",padding:"14px 18px",display:"flex",alignItems:"center",gap:"12px"}}>
                 <Avatar user={u} size={38}/><div style={{flex:1}}><div style={{color:C.sandDim,fontFamily:T.head,fontSize:"13px",fontWeight:"700"}}>{u.name}</div><BandTag bandId={u.favBand} small/></div>
-                <Btn onClick={()=>handleAddFriend(u.id)} small>+ Add</Btn>
+                <Btn onClick={()=>handleSendFriendRequest(u.id)} disabled={pendingOutgoing.includes(u.id)} small>{pendingOutgoing.includes(u.id)?"⏳ Sent":"+ Add"}</Btn>
               </div>
             ))}
         </div>
