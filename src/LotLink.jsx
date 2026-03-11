@@ -318,13 +318,11 @@ function TopBar({tab,setTab,onLogout,unreadNotifs,unreadDMs,onOpenNotifs,onOpenD
   );
 }
 function BottomNav({tab,setTab,unreadNotifs,unreadDMs,onOpenSearch}){
-  const total=unreadNotifs+unreadDMs;
   return(
     <div style={{position:"fixed",bottom:0,left:0,right:0,background:C.bgGlass,backdropFilter:"blur(12px)",borderTop:`1px solid ${C.border}`,display:"flex",zIndex:100,padding:"8px 0 max(8px,env(safe-area-inset-bottom))"}}>
       {[["feed","⌂","Feed"],["groups","◎","Groups"],["jams","▶","Jams"],["crew","⚇","Crew"],["me","◉","Me"]].map(([id,icon,label])=>(
         <button key={id} onClick={()=>setTab(id)} style={{flex:1,background:"none",border:"none",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:"3px",color:tab===id?C.teal:C.mutedDim,fontFamily:T.head,fontSize:"10px",fontWeight:"700",padding:"4px 0",position:"relative"}}>
           <span style={{fontSize:"18px",lineHeight:1}}>{icon}</span>{label}
-          {id==="feed"&&total>0&&<div style={{position:"absolute",top:"2px",right:"calc(50% - 14px)",background:G.sunset,color:C.bgDeep,borderRadius:"50%",width:"14px",height:"14px",fontSize:"9px",fontWeight:"800",display:"flex",alignItems:"center",justifyContent:"center"}}>{total}</div>}
         </button>
       ))}
       <button onClick={onOpenSearch} style={{flex:1,background:"none",border:"none",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:"3px",color:C.mutedDim,fontFamily:T.head,fontSize:"10px",fontWeight:"700",padding:"4px 0"}}>
@@ -813,7 +811,6 @@ export default function LotLink(){
   const[showAddPost,setShowAddPost]=useState(false);
   const[viewProfile,setViewProfile]=useState(null);
   const[viewGroup,setViewGroup]=useState(null);
-  const[feedFilter,setFeedFilter]=useState("all");
   const[defaultBand,setDefaultBand]=useState(null);
   const[showNotifs,setShowNotifs]=useState(false);
   const[showDMs,setShowDMs]=useState(false);
@@ -925,19 +922,27 @@ export default function LotLink(){
     await db.addNotification({toId,fromId:currentUserId,text:`${currentUser?.name} sent you a message`});
   };
   const handleMarkDMRead=async fromId=>{setMessages(prev=>prev.map(m=>m.fromId===fromId&&m.toId===currentUserId?{...m,read:true}:m));await db.markMessagesRead(fromId,currentUserId);};
-  const handleMarkNotifsRead=async()=>{setNotifications(prev=>prev.map(n=>({...n,read:true})));await db.markNotifsRead(currentUserId);};
+  const handleMarkNotifsRead=async()=>{
+    // Only mark non-friend-request notifs as read — friend requests stay until acted on
+    setNotifications(prev=>prev.map(n=>n.text==="__FRIENDREQ__"?n:{...n,read:true}));
+    await supabase.from("notifications").update({read:true}).eq("to_id",currentUserId).neq("text","__FRIENDREQ__");
+  };
   const handleLogout=()=>{localStorage.removeItem("lotlink-uid");setCurrentUserId(null);};
 
   const pendingOutgoing=notifications.filter(n=>n.fromId===currentUserId&&n.text==="__FRIENDREQ__").map(n=>n.toId);
   const showPosts=posts.filter(p=>p.type==="show");
   const wallPosts=posts.filter(p=>p.type==="wall");
-  const feedPosts=showPosts.filter(p=>feedFilter==="all"||p.band===feedFilter).sort((a,b)=>new Date(b.created_at||b.date)-new Date(a.created_at||a.date));
-  const friends=(currentUser?.friends||[]).map(id=>users.find(u=>u.id===id)).filter(Boolean);
-  const unreadNotifs=notifications.filter(n=>!n.read).length;
+  const friendIds=(currentUser?.friends||[]);
+  const feedPosts=wallPosts.filter(p=>friendIds.includes(p.userId)||p.userId===currentUserId).sort((a,b)=>new Date(b.created_at||b.date)-new Date(a.created_at||a.date));
+  const friends=friendIds.map(id=>users.find(u=>u.id===id)).filter(Boolean);
+  // Only count non-friendreq notifs as unread badge (friend requests always show until acted on)
+  const unreadNotifs=notifications.filter(n=>!n.read&&n.text!=="__FRIENDREQ__"&&n.text!=="__FRIENDACC__").length;
+  const pendingFriendReqs=notifications.filter(n=>n.text==="__FRIENDREQ__").length;
+  const totalNotifBadge=unreadNotifs+pendingFriendReqs;
   const unreadDMs=messages.filter(m=>m.toId===currentUserId&&!m.read).length;
   const profileProps={posts,wallPosts,users,currentUserId,onUpdate:handleUpdateProfile,onAddWallPost:addWallPost,onLikeWall:handleLike,onCommentWall:handleComment,onDeleteWall:handleDeletePost,onAddFriend:handleSendFriendRequest,onDeleteAccount:handleDeleteAccount,pendingOutgoing};
   const navSetTab=t=>{setViewProfile(null);setViewGroup(null);setShowDMs(false);setTab(t);};
-  const navProps={tab,setTab:navSetTab,onLogout:handleLogout,unreadNotifs,unreadDMs,onOpenNotifs:()=>setShowNotifs(!showNotifs),onOpenDMs:()=>setShowDMs(true),onOpenSearch:()=>setShowSearch(true)};
+  const navProps={tab,setTab:navSetTab,onLogout:handleLogout,unreadNotifs:totalNotifBadge,unreadDMs,onOpenNotifs:()=>{setShowNotifs(!showNotifs);if(!showNotifs)setTimeout(handleMarkNotifsRead,1500);},onOpenDMs:()=>setShowDMs(true),onOpenSearch:()=>setShowSearch(true)};
 
   const wrap=children=>(
     <div style={{minHeight:"100vh",background:C.bg,color:C.white,paddingBottom:isMobile?"70px":"0",backgroundImage:`radial-gradient(ellipse at 10% 0%,${C.teal}0A 0%,transparent 40%),radial-gradient(ellipse at 90% 100%,${C.green}08 0%,transparent 40%)`}}>
@@ -957,15 +962,15 @@ export default function LotLink(){
   return wrap(
     <div style={{maxWidth:"720px",margin:"0 auto",padding:"24px 20px"}}>
       {tab==="feed"&&(<>
-        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"20px",flexWrap:"wrap",gap:"12px"}}>
-          <div style={{display:"flex",gap:"8px",flexWrap:"wrap"}}>
-            <button onClick={()=>setFeedFilter("all")} style={filterPill(feedFilter==="all")}>All</button>
-            {BANDS.map(b=><button key={b.id} onClick={()=>setFeedFilter(b.id)} style={filterPill(feedFilter===b.id,b.color)}>{b.name.split(" ")[0]}</button>)}
-          </div>
-          <Btn onClick={()=>setShowAddPost(true)}>+ Log Show</Btn>
+        {/* Post composer */}
+        <div style={{background:C.bgCard,border:`1px solid ${C.border}`,borderRadius:"20px",padding:"16px 18px",marginBottom:"20px",display:"flex",gap:"12px",alignItems:"center",cursor:"pointer"}} onClick={()=>setShowAddPost(true)}>
+          <Avatar user={currentUser} size={40}/>
+          <div style={{flex:1,background:C.bgDeep,borderRadius:"24px",padding:"11px 18px",color:C.mutedDim,fontFamily:T.body,fontSize:"14px"}}>What's on your mind?</div>
+          <Btn onClick={e=>{e.stopPropagation();setShowAddPost(true);}} small>Post</Btn>
         </div>
-        {feedPosts.length===0?<Empty>No shows logged yet. Be the first to drop a show!</Empty>
-          :<div style={{display:"flex",flexDirection:"column",gap:"14px"}}>{feedPosts.map(p=><ShowCard key={p.id} post={p} users={users} currentUserId={currentUserId} onLike={handleLike} onAddFriend={handleSendFriendRequest} onComment={handleComment} onDeletePost={handleDeletePost} onViewProfile={setViewProfile} pendingOutgoing={pendingOutgoing}/>)}</div>}
+        {feedPosts.length===0
+          ?<Empty>{friends.length===0?"Add some friends to see their posts here 〜":"No posts yet — be the first to share something!"}</Empty>
+          :<div style={{display:"flex",flexDirection:"column",gap:"14px"}}>{feedPosts.map(p=><WallCard key={p.id} post={p} users={users} currentUserId={currentUserId} onLike={handleLike} onComment={handleComment} onDelete={handleDeletePost}/>)}</div>}
       </>)}
       {tab==="groups"&&(<>
         <div style={{color:C.muted,fontFamily:T.head,fontSize:"11px",letterSpacing:"3px",fontWeight:"700",marginBottom:"16px"}}>BAND GROUPS</div>
@@ -1006,7 +1011,7 @@ export default function LotLink(){
         </div>
       </>)}
       {tab==="me"&&currentUser&&<ProfilePage user={currentUser} {...profileProps} onBack={()=>setTab("feed")} onSendDM={()=>setShowDMs(true)}/>}
-      {showAddPost&&<AddShowModal onAdd={addPost} onClose={()=>setShowAddPost(false)} defaultBand={defaultBand}/>}
+      {showAddPost&&<AddWallPostModal onAdd={data=>addWallPost({...data,profileId:currentUserId})} onClose={()=>setShowAddPost(false)}/>}
     </div>
   );
 }
