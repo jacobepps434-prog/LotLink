@@ -181,8 +181,114 @@ function AuthScreen({onAuth}){
   );
 }
 
+// ── SEARCH ────────────────────────────────────────────────────────────────────
+function SearchOverlay({users,posts,videos,onClose,onViewProfile,onViewGroup,onPlayVideo}){
+  const[query,setQuery]=useState("");
+  const inputRef=useRef();
+  useEffect(()=>{inputRef.current?.focus();},[]);
+  const q=query.trim().toLowerCase();
+  const showPosts=posts.filter(p=>p.type==="show");
+
+  const userResults=q?users.filter(u=>u.name?.toLowerCase().includes(q)||u.bio?.toLowerCase().includes(q)):[];
+  const videoResults=q?videos.filter(v=>v.approved&&(v.title?.toLowerCase().includes(q)||BANDS.find(b=>b.id===v.bandId)?.name.toLowerCase().includes(q))):[];
+  const showResults=q?showPosts.filter(p=>p.venue?.toLowerCase().includes(q)||p.notes?.toLowerCase().includes(q)||p.setlist?.toLowerCase().includes(q)):[];
+  const bandResults=q?BANDS.filter(b=>b.name.toLowerCase().includes(q)||b.desc.toLowerCase().includes(q)):[];
+  const hasResults=userResults.length||videoResults.length||showResults.length||bandResults.length;
+
+  return(
+    <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.92)",zIndex:300,backdropFilter:"blur(8px)",display:"flex",flexDirection:"column",alignItems:"center",padding:"80px 20px 20px"}} onClick={e=>e.target===e.currentTarget&&onClose()}>
+      <div style={{width:"100%",maxWidth:"620px"}}>
+        <div style={{position:"relative",marginBottom:"24px"}}>
+          <span style={{position:"absolute",left:"18px",top:"50%",transform:"translateY(-50%)",fontSize:"18px",pointerEvents:"none"}}>🔍</span>
+          <input ref={inputRef} value={query} onChange={e=>setQuery(e.target.value)} placeholder="Search users, videos, shows, bands..." style={{...inp(),paddingLeft:"48px",borderRadius:"32px",fontSize:"16px",border:`1px solid ${C.teal}66`,background:C.bgCard,padding:"16px 20px 16px 50px"}}/>
+          <button onClick={onClose} style={{position:"absolute",right:"14px",top:"50%",transform:"translateY(-50%)",background:"none",border:"none",color:C.muted,fontSize:"22px",cursor:"pointer",lineHeight:1}}>×</button>
+        </div>
+
+        {!q&&<div style={{textAlign:"center",color:C.mutedDim,fontFamily:T.body,fontSize:"14px",marginTop:"40px"}}>Start typing to search the lot 〜</div>}
+        {q&&!hasResults&&<div style={{textAlign:"center",color:C.mutedDim,fontFamily:T.body,fontSize:"14px",marginTop:"40px"}}>No results for "{query}"</div>}
+
+        <div style={{display:"flex",flexDirection:"column",gap:"24px",overflowY:"auto",maxHeight:"calc(100vh - 200px)"}}>
+
+          {bandResults.length>0&&<div>
+            <div style={{color:C.teal,fontFamily:T.head,fontSize:"10px",letterSpacing:"2px",fontWeight:"700",marginBottom:"10px"}}>BANDS</div>
+            <div style={{display:"flex",flexDirection:"column",gap:"8px"}}>
+              {bandResults.map(band=>(
+                <div key={band.id} onClick={()=>{onViewGroup(band);onClose();}} style={{background:C.bgCard,border:`1px solid ${band.color}44`,borderRadius:"16px",padding:"14px 18px",cursor:"pointer",display:"flex",alignItems:"center",gap:"14px",transition:"transform 0.15s"}}
+                  onMouseEnter={e=>e.currentTarget.style.transform="translateX(4px)"}
+                  onMouseLeave={e=>e.currentTarget.style.transform=""}>
+                  <div style={{width:"38px",height:"38px",borderRadius:"50%",background:`${band.color}22`,border:`2px solid ${band.color}55`,display:"flex",alignItems:"center",justifyContent:"center",color:band.color,fontSize:"18px",fontWeight:"800",flexShrink:0}}>{band.icon}</div>
+                  <div><div style={{color:C.white,fontFamily:T.head,fontSize:"14px",fontWeight:"700"}}>{band.name}</div><div style={{color:C.muted,fontFamily:T.body,fontSize:"12px",fontStyle:"italic"}}>{band.desc}</div></div>
+                </div>
+              ))}
+            </div>
+          </div>}
+
+          {userResults.length>0&&<div>
+            <div style={{color:C.aqua,fontFamily:T.head,fontSize:"10px",letterSpacing:"2px",fontWeight:"700",marginBottom:"10px"}}>USERS</div>
+            <div style={{display:"flex",flexDirection:"column",gap:"8px"}}>
+              {userResults.map(u=>(
+                <div key={u.id} onClick={()=>{onViewProfile(u);onClose();}} style={{background:C.bgCard,border:`1px solid ${C.border}`,borderRadius:"16px",padding:"12px 16px",cursor:"pointer",display:"flex",alignItems:"center",gap:"12px",transition:"transform 0.15s"}}
+                  onMouseEnter={e=>e.currentTarget.style.transform="translateX(4px)"}
+                  onMouseLeave={e=>e.currentTarget.style.transform=""}>
+                  <Avatar user={u} size={40}/>
+                  <div style={{flex:1}}>
+                    <div style={{color:C.white,fontFamily:T.head,fontSize:"14px",fontWeight:"700"}}>{u.name}</div>
+                    <div style={{display:"flex",gap:"8px",alignItems:"center",marginTop:"3px"}}><BandTag bandId={u.favBand} small/>{u.bio&&<span style={{color:C.muted,fontFamily:T.body,fontSize:"12px"}}>{u.bio.slice(0,60)}{u.bio.length>60?"…":""}</span>}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>}
+
+          {videoResults.length>0&&<div>
+            <div style={{color:C.gold,fontFamily:T.head,fontSize:"10px",letterSpacing:"2px",fontWeight:"700",marginBottom:"10px"}}>VIDEOS</div>
+            <div style={{display:"flex",flexDirection:"column",gap:"8px"}}>
+              {videoResults.map(v=>(
+                <div key={v.id} onClick={()=>{onPlayVideo(v);onClose();}} style={{background:C.bgCard,border:`1px solid ${C.border}`,borderRadius:"16px",padding:"10px 14px",cursor:"pointer",display:"flex",alignItems:"center",gap:"12px",transition:"transform 0.15s"}}
+                  onMouseEnter={e=>e.currentTarget.style.transform="translateX(4px)"}
+                  onMouseLeave={e=>e.currentTarget.style.transform=""}>
+                  <img src={ytThumb(v.ytId)} alt="" style={{width:"72px",height:"44px",borderRadius:"8px",objectFit:"cover",flexShrink:0}}/>
+                  <div style={{flex:1}}>
+                    <div style={{color:C.white,fontFamily:T.head,fontSize:"13px",fontWeight:"700",lineHeight:"1.3"}}>{v.title}</div>
+                    <div style={{display:"flex",gap:"8px",alignItems:"center",marginTop:"4px"}}><BandTag bandId={v.bandId} small/>{v.date&&<span style={{color:C.mutedDim,fontFamily:T.mono,fontSize:"10px"}}>{v.date}</span>}</div>
+                  </div>
+                  <span style={{color:C.muted,fontSize:"18px"}}>▶</span>
+                </div>
+              ))}
+            </div>
+          </div>}
+
+          {showResults.length>0&&<div>
+            <div style={{color:C.coral,fontFamily:T.head,fontSize:"10px",letterSpacing:"2px",fontWeight:"700",marginBottom:"10px"}}>SHOWS</div>
+            <div style={{display:"flex",flexDirection:"column",gap:"8px"}}>
+              {showResults.slice(0,8).map(p=>{
+                const band=BANDS.find(b=>b.id===p.band);
+                const author=users.find(u=>u.id===p.userId);
+                return(
+                  <div key={p.id} style={{background:C.bgCard,border:`1px solid ${C.border}`,borderLeft:`4px solid ${band?.color||C.teal}`,borderRadius:"16px",padding:"12px 16px",display:"flex",alignItems:"center",gap:"12px"}}>
+                    <div style={{flex:1}}>
+                      <div style={{color:C.white,fontFamily:T.display,fontSize:"14px",fontWeight:"700"}}>{p.venue}</div>
+                      <div style={{display:"flex",gap:"8px",alignItems:"center",marginTop:"4px",flexWrap:"wrap"}}>
+                        <BandTag bandId={p.band} small/>
+                        <span style={{color:C.mutedDim,fontFamily:T.mono,fontSize:"11px"}}>{p.date}</span>
+                        {author&&<span style={{color:C.muted,fontFamily:T.head,fontSize:"11px",fontWeight:"700"}}>by {author.name}</span>}
+                      </div>
+                    </div>
+                    <div style={{color:band?.color||C.teal,fontSize:"12px",letterSpacing:"1px",flexShrink:0}}>{stars(p.rating)}</div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>}
+
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── NAV ───────────────────────────────────────────────────────────────────────
-function TopBar({tab,setTab,onLogout,unreadNotifs,unreadDMs,onOpenNotifs,onOpenDMs}){
+function TopBar({tab,setTab,onLogout,unreadNotifs,unreadDMs,onOpenNotifs,onOpenDMs,onOpenSearch}){
   return(
     <div style={{borderBottom:`1px solid ${C.border}`,padding:"0 24px",display:"flex",alignItems:"center",justifyContent:"space-between",position:"sticky",top:0,background:C.bgGlass,backdropFilter:"blur(12px)",zIndex:100,height:"58px"}}>
       <Logo/>
@@ -192,6 +298,7 @@ function TopBar({tab,setTab,onLogout,unreadNotifs,unreadDMs,onOpenNotifs,onOpenD
         ))}
       </div>
       <div style={{display:"flex",gap:"8px",alignItems:"center"}}>
+        <button onClick={onOpenSearch} style={{background:"none",border:`1px solid ${C.border}`,color:C.muted,padding:"7px 10px",borderRadius:"20px",cursor:"pointer",fontSize:"16px"}}>🔍</button>
         <div style={{position:"relative"}}>
           <button onClick={onOpenDMs} style={{background:"none",border:`1px solid ${C.border}`,color:C.muted,padding:"7px 10px",borderRadius:"20px",cursor:"pointer",fontSize:"16px"}}>💬</button>
           {unreadDMs>0&&<div style={{position:"absolute",top:"-4px",right:"-4px",background:G.teal,color:C.bgDeep,borderRadius:"50%",width:"18px",height:"18px",fontSize:"10px",fontWeight:"800",display:"flex",alignItems:"center",justifyContent:"center",fontFamily:T.head}}>{unreadDMs}</div>}
@@ -205,7 +312,7 @@ function TopBar({tab,setTab,onLogout,unreadNotifs,unreadDMs,onOpenNotifs,onOpenD
     </div>
   );
 }
-function BottomNav({tab,setTab,unreadNotifs,unreadDMs}){
+function BottomNav({tab,setTab,unreadNotifs,unreadDMs,onOpenSearch}){
   const total=unreadNotifs+unreadDMs;
   return(
     <div style={{position:"fixed",bottom:0,left:0,right:0,background:C.bgGlass,backdropFilter:"blur(12px)",borderTop:`1px solid ${C.border}`,display:"flex",zIndex:100,padding:"8px 0 max(8px,env(safe-area-inset-bottom))"}}>
@@ -215,6 +322,9 @@ function BottomNav({tab,setTab,unreadNotifs,unreadDMs}){
           {id==="feed"&&total>0&&<div style={{position:"absolute",top:"2px",right:"calc(50% - 14px)",background:G.sunset,color:C.bgDeep,borderRadius:"50%",width:"14px",height:"14px",fontSize:"9px",fontWeight:"800",display:"flex",alignItems:"center",justifyContent:"center"}}>{total}</div>}
         </button>
       ))}
+      <button onClick={onOpenSearch} style={{flex:1,background:"none",border:"none",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:"3px",color:C.mutedDim,fontFamily:T.head,fontSize:"10px",fontWeight:"700",padding:"4px 0"}}>
+        <span style={{fontSize:"18px",lineHeight:1}}>🔍</span>Search
+      </button>
     </div>
   );
 }
@@ -702,6 +812,8 @@ export default function LotLink(){
   const[defaultBand,setDefaultBand]=useState(null);
   const[showNotifs,setShowNotifs]=useState(false);
   const[showDMs,setShowDMs]=useState(false);
+  const[showSearch,setShowSearch]=useState(false);
+  const[searchPlayingVideo,setSearchPlayingVideo]=useState(null);
   const[isMobile,setIsMobile]=useState(window.innerWidth<768);
   useEffect(()=>{const h=()=>setIsMobile(window.innerWidth<768);window.addEventListener("resize",h);return()=>window.removeEventListener("resize",h);},[]);
 
@@ -820,14 +932,16 @@ export default function LotLink(){
   const unreadDMs=messages.filter(m=>m.toId===currentUserId&&!m.read).length;
   const profileProps={posts,wallPosts,users,currentUserId,onUpdate:handleUpdateProfile,onAddWallPost:addWallPost,onLikeWall:handleLike,onCommentWall:handleComment,onDeleteWall:handleDeletePost,onAddFriend:handleSendFriendRequest,onDeleteAccount:handleDeleteAccount,pendingOutgoing};
   const navSetTab=t=>{setViewProfile(null);setViewGroup(null);setShowDMs(false);setTab(t);};
-  const navProps={tab,setTab:navSetTab,onLogout:handleLogout,unreadNotifs,unreadDMs,onOpenNotifs:()=>setShowNotifs(!showNotifs),onOpenDMs:()=>setShowDMs(true)};
+  const navProps={tab,setTab:navSetTab,onLogout:handleLogout,unreadNotifs,unreadDMs,onOpenNotifs:()=>setShowNotifs(!showNotifs),onOpenDMs:()=>setShowDMs(true),onOpenSearch:()=>setShowSearch(true)};
 
   const wrap=children=>(
     <div style={{minHeight:"100vh",background:C.bg,color:C.white,paddingBottom:isMobile?"70px":"0",backgroundImage:`radial-gradient(ellipse at 10% 0%,${C.teal}0A 0%,transparent 40%),radial-gradient(ellipse at 90% 100%,${C.green}08 0%,transparent 40%)`}}>
       {!isMobile&&<TopBar {...navProps}/>}
       {children}
-      {isMobile&&<BottomNav tab={tab} setTab={navSetTab} unreadNotifs={unreadNotifs} unreadDMs={unreadDMs}/>}
+      {isMobile&&<BottomNav tab={tab} setTab={navSetTab} unreadNotifs={unreadNotifs} unreadDMs={unreadDMs} onOpenSearch={()=>setShowSearch(true)}/>}
       {showNotifs&&<NotifPanel notifications={notifications} users={users} onClose={()=>setShowNotifs(false)} onMarkRead={handleMarkNotifsRead} onAcceptFriend={handleAcceptFriend} onDeclineFriend={handleDeclineFriend}/>}
+      {showSearch&&<SearchOverlay users={users} posts={posts} videos={videos} onClose={()=>setShowSearch(false)} onViewProfile={u=>{setViewProfile(u);navSetTab("feed");}} onViewGroup={b=>{setViewGroup(b);}} onPlayVideo={v=>setSearchPlayingVideo(v)}/>}
+      <VideoPlayer video={searchPlayingVideo} onClose={()=>setSearchPlayingVideo(null)}/>
     </div>
   );
 
