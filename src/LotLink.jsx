@@ -32,8 +32,8 @@ const T={display:"'Playfair Display',Georgia,serif",head:"'Raleway','Trebuchet M
 const db={
   async getUsers(){const{data}=await supabase.from("users").select("*");return(data||[]).map(u=>({...u,favBand:u.fav_band,avatarColor:u.avatar_color,avatarImg:u.avatar_img,friends:u.friends||[],password:u.password||""}));},
   async upsertUser(u){await supabase.from("users").upsert({id:u.id,name:u.name,email:u.email||"",phone:u.phone||"",bio:u.bio||"",fav_band:u.favBand||"phish",avatar_color:u.avatarColor||"",avatar_img:u.avatarImg||"",friends:u.friends||[],password:u.password||""});},
-  async getPosts(){const{data}=await supabase.from("posts").select("*").order("created_at",{ascending:false});return(data||[]).map(p=>({...p,userId:p.user_id,profileId:p.profile_id,wallImg:p.wall_img,likedBy:p.liked_by||[],comments:p.comments||[]}));},
-  async upsertPost(p){await supabase.from("posts").upsert({id:p.id,user_id:p.userId,type:p.type,band:p.band,date:p.date,venue:p.venue,setlist:p.setlist,notes:p.notes,rating:p.rating,profile_id:p.profileId,text:p.text,wall_img:p.wallImg,liked_by:p.likedBy||[],comments:p.comments||[]});},
+  async getPosts(){const{data}=await supabase.from("posts").select("*").order("created_at",{ascending:false});return(data||[]).map(p=>({...p,userId:p.user_id,profileId:p.profile_id,wallImg:p.wall_img,likedBy:p.liked_by||[],comments:p.comments||[],reactions:p.reactions||{},going:p.going||[]}));},
+  async upsertPost(p){await supabase.from("posts").upsert({id:p.id,user_id:p.userId,type:p.type,band:p.band,date:p.date,venue:p.venue,setlist:p.setlist,notes:p.notes,rating:p.rating,profile_id:p.profileId,text:p.text,wall_img:p.wallImg,liked_by:p.likedBy||[],comments:p.comments||[],reactions:p.reactions||{},going:p.going||[]});},
   async deletePost(id){await supabase.from("posts").delete().eq("id",id);},
   async getTales(){const{data}=await supabase.from("tales").select("*").order("created_at",{ascending:false});return(data||[]).map(t=>({...t,userId:t.user_id,bandId:t.band_id,taleImg:t.tale_img}));},
   async upsertTale(t){await supabase.from("tales").upsert({id:t.id,user_id:t.userId,band_id:t.bandId,title:t.title,body:t.body,tale_img:t.taleImg||null,date:t.date});},
@@ -433,14 +433,13 @@ function DMScreen({currentUserId,users,messages,onSend,onBack,onMarkRead}){
 }
 
 // ── VIDEO COMPONENTS ──────────────────────────────────────────────────────────
-function VideoCard({video,onPlay}){
+function VideoCard({video,onPlay,onShare}){
   const band=BANDS.find(b=>b.id===video.bandId);
   return(
-    <div style={{background:C.bgCard,border:`1px solid ${C.border}`,borderRadius:"16px",overflow:"hidden",cursor:"pointer",transition:"transform 0.2s,box-shadow 0.2s",boxShadow:"0 4px 20px rgba(0,0,0,0.3)"}}
-      onClick={()=>onPlay(video)}
+    <div style={{background:C.bgCard,border:`1px solid ${C.border}`,borderRadius:"16px",overflow:"hidden",transition:"transform 0.2s,box-shadow 0.2s",boxShadow:"0 4px 20px rgba(0,0,0,0.3)"}}
       onMouseEnter={e=>{e.currentTarget.style.transform="translateY(-3px)";e.currentTarget.style.boxShadow=`0 8px 30px ${band?.color||C.teal}33`;}}
       onMouseLeave={e=>{e.currentTarget.style.transform="";e.currentTarget.style.boxShadow="0 4px 20px rgba(0,0,0,0.3)";}}>
-      <div style={{position:"relative"}}>
+      <div style={{position:"relative",cursor:"pointer"}} onClick={()=>onPlay(video)}>
         <img src={ytThumb(video.ytId)} alt={video.title} style={{width:"100%",aspectRatio:"16/9",objectFit:"cover",display:"block"}}/>
         <div style={{position:"absolute",inset:0,background:"rgba(0,0,0,0.3)",display:"flex",alignItems:"center",justifyContent:"center"}}>
           <div style={{width:"48px",height:"48px",borderRadius:"50%",background:"rgba(0,0,0,0.7)",border:`2px solid ${C.white}`,display:"flex",alignItems:"center",justifyContent:"center"}}><span style={{color:C.white,fontSize:"18px",marginLeft:"3px"}}>▶</span></div>
@@ -449,7 +448,8 @@ function VideoCard({video,onPlay}){
       </div>
       <div style={{padding:"12px 14px"}}>
         <div style={{color:C.white,fontFamily:T.head,fontWeight:"700",fontSize:"13px",lineHeight:"1.4",marginBottom:"4px"}}>{video.title}</div>
-        {video.date&&<div style={{color:C.muted,fontFamily:T.mono,fontSize:"11px"}}>{video.date}</div>}
+        {video.date&&<div style={{color:C.muted,fontFamily:T.mono,fontSize:"11px",marginBottom:"8px"}}>{video.date}</div>}
+        {onShare&&<button onClick={()=>onShare(video)} style={{background:"none",border:`1px solid ${C.border}`,color:C.muted,borderRadius:"12px",padding:"5px 12px",cursor:"pointer",fontFamily:T.head,fontSize:"11px",fontWeight:"700",width:"100%"}}>↗ Share to Feed</button>}
       </div>
     </div>
   );
@@ -472,7 +472,7 @@ function VideoPlayer({video,onClose}){
 }
 
 // ── JAMS TV ───────────────────────────────────────────────────────────────────
-function JamsTV({videos,currentUserId,onSubmitVideo}){
+function JamsTV({videos,currentUserId,onSubmitVideo,onShareVideo}){
   const[filter,setFilter]=useState("all");
   const[playing,setPlaying]=useState(null);
   const[showSubmit,setShowSubmit]=useState(false);
@@ -491,7 +491,7 @@ function JamsTV({videos,currentUserId,onSubmitVideo}){
         <button onClick={()=>setFilter("collab")} style={filterPill(filter==="collab",C.gold)}>Collabs</button>
       </div>
       {filtered.length===0?<Empty>No videos here yet!</Empty>
-        :<div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(260px,1fr))",gap:"16px"}}>{filtered.map(v=><VideoCard key={v.id} video={v} onPlay={setPlaying}/>)}</div>}
+        :<div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(260px,1fr))",gap:"16px"}}>{filtered.map(v=><VideoCard key={v.id} video={v} onPlay={setPlaying} onShare={onShareVideo}/>)}</div>}
       <VideoPlayer video={playing} onClose={()=>setPlaying(null)}/>
       {showSubmit&&(
         <Modal title="Submit a Video" onClose={()=>setShowSubmit(false)}>
@@ -581,12 +581,18 @@ function ShowCard({post,users,currentUserId,onLike,onAddFriend,onComment,onDelet
 }
 
 // ── WALL CARD ─────────────────────────────────────────────────────────────────
-function WallCard({post,users,currentUserId,onLike,onComment,onDelete}){
+const REACTIONS=[{emoji:"🔥",key:"fire"},{emoji:"🎸",key:"guitar"},{emoji:"🤙",key:"shaka"}];
+function WallCard({post,users,currentUserId,onLike,onReact,onComment,onDelete,onShareVideo}){
   const[expanded,setExpanded]=useState(false);
   const[commentText,setCommentText]=useState("");
+  const[showReactions,setShowReactions]=useState(false);
   const author=users.find(u=>u.id===post.userId);
   const isOwn=post.userId===currentUserId;
   const liked=post.likedBy?.includes(currentUserId);
+  const reactions=post.reactions||{};
+  const myReaction=Object.keys(reactions).find(k=>reactions[k]?.includes(currentUserId));
+  // detect shared video
+  const isSharedVideo=post.sharedVideoId&&post.sharedVideo;
   return(
     <div style={{background:C.bgCard,border:`1px solid ${C.border}`,borderRadius:"20px",overflow:"hidden",boxShadow:"0 4px 20px rgba(0,0,0,0.2)"}}>
       <div style={{padding:"16px 18px 12px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
@@ -598,12 +604,31 @@ function WallCard({post,users,currentUserId,onLike,onComment,onDelete}){
       </div>
       <div style={{padding:"0 18px 14px"}}>
         {post.wallImg&&<img src={post.wallImg} alt="" style={{width:"100%",borderRadius:"12px",marginBottom:"10px",maxHeight:"300px",objectFit:"cover"}}/>}
-        <div style={{color:C.sandDim,fontFamily:T.body,fontSize:"14px",lineHeight:"1.7",whiteSpace:"pre-wrap"}}>{post.text}</div>
+        {post.text&&<div style={{color:C.sandDim,fontFamily:T.body,fontSize:"14px",lineHeight:"1.7",whiteSpace:"pre-wrap"}}>{post.text}</div>}
+        {isSharedVideo&&<div onClick={()=>onShareVideo&&onShareVideo(post.sharedVideo)} style={{marginTop:"10px",background:C.bgDeep,border:`1px solid ${C.border}`,borderRadius:"14px",overflow:"hidden",cursor:"pointer"}}>
+          <img src={ytThumb(post.sharedVideo.ytId)} alt="" style={{width:"100%",maxHeight:"180px",objectFit:"cover"}}/>
+          <div style={{padding:"10px 14px",display:"flex",alignItems:"center",gap:"10px"}}>
+            <span style={{color:C.teal,fontSize:"20px"}}>▶</span>
+            <div><div style={{color:C.white,fontFamily:T.head,fontSize:"13px",fontWeight:"700"}}>{post.sharedVideo.title}</div><BandTag bandId={post.sharedVideo.bandId} small/></div>
+          </div>
+        </div>}
       </div>
       <Divider/>
-      <div style={{padding:"10px 18px",display:"flex",gap:"16px"}}>
-        <button onClick={()=>onLike(post.id)} style={{background:"none",border:"none",cursor:"pointer",color:liked?C.gold:C.muted,fontFamily:T.head,fontSize:"13px",fontWeight:"700",padding:"0",display:"flex",alignItems:"center",gap:"5px"}}>{liked?"★":"☆"} {post.likedBy?.length||0}</button>
-        <button onClick={()=>setExpanded(!expanded)} style={{background:"none",border:"none",cursor:"pointer",color:C.muted,fontFamily:T.head,fontSize:"13px",fontWeight:"700",padding:"0"}}>💬 {(post.comments||[]).length}</button>
+      <div style={{padding:"10px 18px",display:"flex",gap:"6px",alignItems:"center",flexWrap:"wrap",position:"relative"}}>
+        <button onClick={()=>onLike(post.id)} style={{background:"none",border:"none",cursor:"pointer",color:liked?C.gold:C.muted,fontFamily:T.head,fontSize:"13px",fontWeight:"700",padding:"4px 8px",borderRadius:"20px",display:"flex",alignItems:"center",gap:"4px",background:liked?`${C.gold}15`:"none"}}>{liked?"★":"☆"} {post.likedBy?.length||0}</button>
+        <div style={{position:"relative"}}>
+          <button onClick={()=>setShowReactions(r=>!r)} style={{background:myReaction?`${C.teal}15`:"none",border:"none",cursor:"pointer",color:myReaction?C.teal:C.muted,fontFamily:T.head,fontSize:"13px",fontWeight:"700",padding:"4px 8px",borderRadius:"20px"}}>
+            {myReaction?REACTIONS.find(r=>r.key===myReaction)?.emoji:"😊"}{" "}{Object.values(reactions).reduce((s,arr)=>s+(arr?.length||0),0)||""}
+          </button>
+          {showReactions&&<div style={{position:"absolute",bottom:"110%",left:0,background:C.bgCard,border:`1px solid ${C.border}`,borderRadius:"16px",padding:"8px 12px",display:"flex",gap:"8px",zIndex:50,boxShadow:"0 8px 24px rgba(0,0,0,0.4)"}}>
+            {REACTIONS.map(r=>{
+              const count=reactions[r.key]?.length||0;
+              const active=reactions[r.key]?.includes(currentUserId);
+              return<button key={r.key} onClick={()=>{onReact(post.id,r.key);setShowReactions(false);}} style={{background:active?`${C.teal}22`:"none",border:`1px solid ${active?C.teal:C.border}`,borderRadius:"12px",padding:"6px 10px",cursor:"pointer",color:C.white,fontSize:"16px",fontFamily:T.head,display:"flex",alignItems:"center",gap:"4px"}}>{r.emoji}{count>0&&<span style={{fontSize:"11px",color:C.muted}}>{count}</span>}</button>;
+            })}
+          </div>}
+        </div>
+        <button onClick={()=>setExpanded(!expanded)} style={{background:"none",border:"none",cursor:"pointer",color:C.muted,fontFamily:T.head,fontSize:"13px",fontWeight:"700",padding:"4px 8px",borderRadius:"20px"}}>💬 {(post.comments||[]).length}</button>
       </div>
       {expanded&&(<><Divider/><div style={{padding:"14px 18px"}}>
         {(post.comments||[]).map((c,i)=>{const cu=users.find(u=>u.id===c.userId);return(
@@ -693,14 +718,16 @@ function ProfilePage({user,posts,wallPosts,users,currentUserId,onUpdate,onBack,o
   const[editing,setEditing]=useState(false);
   const[form,setForm]=useState({bio:user.bio||"",favBand:user.favBand||"phish",name:user.name||""});
   const[showWallModal,setShowWallModal]=useState(false);
-  const[wallTab,setWallTab]=useState("shows");
+  const[wallTab,setWallTab]=useState("all");
   const fileRef=useRef();
   const isOwn=user.id===currentUserId;
   const currentUser=users.find(u=>u.id===currentUserId);
   const isFriend=currentUser?.friends?.includes(user.id);
   const isPendingOut=(pendingOutgoing||[]).includes(user.id);
   const userShows=posts.filter(p=>p.userId===user.id&&p.type==="show").sort((a,b)=>new Date(b.date)-new Date(a.date));
-  const userWall=wallPosts.filter(p=>p.profileId===user.id).sort((a,b)=>new Date(b.date)-new Date(a.date));
+  const userWall=wallPosts.filter(p=>p.profileId===user.id||p.userId===user.id).sort((a,b)=>new Date(b.date||b.created_at)-new Date(a.date||a.created_at));
+  // combined timeline: mix shows + wall posts sorted by date
+  const allActivity=[...userShows.map(p=>({...p,_type:"show"})),...userWall.map(p=>({...p,_type:"wall"}))].sort((a,b)=>new Date(b.date||b.created_at)-new Date(a.date||a.created_at));
   const favBand=BANDS.find(b=>b.id===user.favBand);
   const handleAvatarChange=e=>{const file=e.target.files[0];if(!file)return;const reader=new FileReader();reader.onload=ev=>onUpdate(user.id,{avatarImg:ev.target.result});reader.readAsDataURL(file);};
   return(
@@ -747,26 +774,58 @@ function ProfilePage({user,posts,wallPosts,users,currentUserId,onUpdate,onBack,o
         </div>
       </div>
       <div style={{display:"flex",gap:"8px",marginBottom:"14px",alignItems:"center",justifyContent:"space-between"}}>
-        <div style={{display:"flex",gap:"8px"}}>{[["shows","Show Log"],["posts","Wall"]].map(([id,label])=><button key={id} onClick={()=>setWallTab(id)} style={filterPill(wallTab===id,C.teal)}>{label}</button>)}</div>
-        {isOwn&&wallTab==="posts"&&<Btn onClick={()=>setShowWallModal(true)} small>+ Post</Btn>}
+        <div style={{display:"flex",gap:"8px"}}>{[["all","All"],["shows","Shows"],["posts","Wall"]].map(([id,label])=><button key={id} onClick={()=>setWallTab(id)} style={filterPill(wallTab===id,C.teal)}>{label}</button>)}</div>
+        {isOwn&&(wallTab==="posts"||wallTab==="all")&&<Btn onClick={()=>setShowWallModal(true)} small>+ Post</Btn>}
       </div>
+      {wallTab==="all"&&(allActivity.length===0?<Empty>No activity yet.</Empty>:<div style={{display:"flex",flexDirection:"column",gap:"10px"}}>{allActivity.map(p=>{
+        if(p._type==="wall")return<WallCard key={`w${p.id}`} post={p} users={users} currentUserId={currentUserId} onLike={onLikeWall} onReact={()=>{}} onComment={onCommentWall} onDelete={onDeleteWall}/>;
+        const band=BANDS.find(b=>b.id===p.band);
+        return(<div key={`s${p.id}`} style={{background:C.bgCard,border:`1px solid ${C.border}`,borderLeft:`4px solid ${band?.color||C.teal}`,borderRadius:"16px",padding:"16px"}}>
+          <div style={{display:"flex",justifyContent:"space-between",marginBottom:"8px"}}><BandTag bandId={p.band} small/><span style={{color:C.mutedDim,fontFamily:T.mono,fontSize:"11px"}}>{p.date}</span></div>
+          <div style={{color:C.white,fontFamily:T.display,fontSize:"15px",fontWeight:"700",marginBottom:"4px"}}>{p.venue}</div>
+          <div style={{color:band?.color||C.teal,fontSize:"13px",letterSpacing:"2px"}}>{stars(p.rating)}</div>
+        </div>);
+      })}</div>)}
       {wallTab==="shows"&&(userShows.length===0?<Empty>No shows logged yet.</Empty>:<div style={{display:"flex",flexDirection:"column",gap:"10px"}}>{userShows.map(p=>{const band=BANDS.find(b=>b.id===p.band);return(<div key={p.id} style={{background:C.bgCard,border:`1px solid ${C.border}`,borderLeft:`4px solid ${band?.color||C.teal}`,borderRadius:"16px",padding:"16px"}}><div style={{display:"flex",justifyContent:"space-between",marginBottom:"8px"}}><BandTag bandId={p.band} small/><span style={{color:C.mutedDim,fontFamily:T.mono,fontSize:"11px"}}>{p.date}</span></div><div style={{color:C.white,fontFamily:T.display,fontSize:"15px",fontWeight:"700",marginBottom:"4px"}}>{p.venue}</div><div style={{color:band?.color||C.teal,fontSize:"13px",letterSpacing:"2px"}}>{stars(p.rating)}</div></div>);})}</div>)}
-      {wallTab==="posts"&&(userWall.length===0?<Empty>No wall posts yet.</Empty>:<div style={{display:"flex",flexDirection:"column",gap:"10px"}}>{userWall.map(p=><WallCard key={p.id} post={p} users={users} currentUserId={currentUserId} onLike={onLikeWall} onComment={onCommentWall} onDelete={onDeleteWall}/>)}</div>)}
+      {wallTab==="posts"&&(userWall.length===0?<Empty>No wall posts yet.</Empty>:<div style={{display:"flex",flexDirection:"column",gap:"10px"}}>{userWall.map(p=><WallCard key={p.id} post={p} users={users} currentUserId={currentUserId} onLike={onLikeWall} onReact={()=>{}} onComment={onCommentWall} onDelete={onDeleteWall}/>)}</div>)}
       {showWallModal&&<AddWallPostModal onAdd={data=>onAddWallPost({...data,profileId:user.id})} onClose={()=>setShowWallModal(false)}/>}
     </div>
   );
 }
 
+function GoingToShowModal({band,onAdd,onClose}){
+  const[form,setForm]=useState({date:"",venue:"",notes:""});
+  const set=(k,v)=>setForm(f=>({...f,[k]:v}));
+  return(
+    <Modal title={`📅 I'm Going — ${band.name}`} onClose={onClose}>
+      <div style={{display:"flex",flexDirection:"column",gap:"14px"}}>
+        <div style={{color:C.muted,fontFamily:T.body,fontSize:"13px",fontStyle:"italic"}}>Let the lot know you'll be there. This will appear on the show log.</div>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"12px"}}>
+          <div><Label>Date</Label><input type="date" value={form.date} onChange={e=>set("date",e.target.value)} style={inp()}/></div>
+          <div><Label>Venue</Label><input placeholder="e.g. Red Rocks" value={form.venue} onChange={e=>set("venue",e.target.value)} style={inp()}/></div>
+        </div>
+        <div><Label>Notes (optional)</Label><input placeholder="Section, who you're going with..." value={form.notes} onChange={e=>set("notes",e.target.value)} style={inp()}/></div>
+        <Btn onClick={()=>{if(form.date&&form.venue){onAdd(form);}}} disabled={!form.date||!form.venue}>I'm Going! 🤙</Btn>
+      </div>
+    </Modal>
+  );
+}
+
 // ── GROUP PAGE ────────────────────────────────────────────────────────────────
-function GroupPage({band,posts,tales,videos,users,currentUserId,onBack,onAddPost,onAddTale,onDeleteTale}){
+function GroupPage({band,posts,tales,videos,users,currentUserId,onBack,onAddPost,onAddTale,onDeleteTale,onGoingToShow,onShareVideo}){
   const[groupTab,setGroupTab]=useState("shows");
   const[showTaleModal,setShowTaleModal]=useState(false);
+  const[showGoingModal,setShowGoingModal]=useState(false);
   const[expandedTale,setExpandedTale]=useState(null);
   const[playing,setPlaying]=useState(null);
   const bandShows=posts.filter(p=>p.band===band.id&&p.type==="show").sort((a,b)=>new Date(b.date)-new Date(a.date));
   const bandTales=tales.filter(t=>t.bandId===band.id);
   const bandVideos=videos.filter(v=>v.bandId===band.id&&v.approved);
   const members=[...new Set(bandShows.map(p=>p.userId))].map(id=>users.find(u=>u.id===id)).filter(Boolean);
+  // "Who else saw this" — group shows by venue+date, find overlap
+  const showGroups={};
+  bandShows.forEach(p=>{const key=`${p.venue}||${p.date}`;if(!showGroups[key])showGroups[key]=[];showGroups[key].push(p);});
+  const sharedShows=Object.values(showGroups).filter(g=>g.length>1);
   return(
     <div style={{maxWidth:"680px",margin:"0 auto",padding:"20px"}}>
       <button onClick={onBack} style={{background:"none",border:"none",color:C.muted,cursor:"pointer",fontFamily:T.head,fontSize:"13px",fontWeight:"700",marginBottom:"18px",padding:0}}>← Back</button>
@@ -784,15 +843,40 @@ function GroupPage({band,posts,tales,videos,users,currentUserId,onBack,onAddPost
           {members.length>0&&<div style={{display:"flex",justifyContent:"center",gap:"6px",flexWrap:"wrap"}}>{members.slice(0,8).map(u=><Avatar key={u.id} user={u} size={30}/>)}</div>}
         </div>
       </div>
+
+      {/* Who else saw this */}
+      {sharedShows.length>0&&<div style={{background:C.bgCard,border:`1px solid ${band.color}33`,borderRadius:"18px",padding:"16px 18px",marginBottom:"14px"}}>
+        <div style={{color:band.color,fontFamily:T.head,fontSize:"10px",letterSpacing:"2px",fontWeight:"700",marginBottom:"12px"}}>👥 WHO ELSE SAW THIS SHOW</div>
+        <div style={{display:"flex",flexDirection:"column",gap:"10px"}}>
+          {sharedShows.map((group,i)=>{
+            const attendees=group.map(p=>users.find(u=>u.id===p.userId)).filter(Boolean);
+            return(<div key={i} style={{display:"flex",alignItems:"center",gap:"12px",flexWrap:"wrap"}}>
+              <div style={{flex:1}}>
+                <div style={{color:C.white,fontFamily:T.head,fontSize:"13px",fontWeight:"700"}}>{group[0].venue}</div>
+                <div style={{color:C.mutedDim,fontFamily:T.mono,fontSize:"11px"}}>{group[0].date}</div>
+              </div>
+              <div style={{display:"flex",gap:"4px",alignItems:"center"}}>
+                {attendees.map(u=><Avatar key={u.id} user={u} size={28}/>)}
+                <span style={{color:C.muted,fontFamily:T.head,fontSize:"11px",fontWeight:"700",marginLeft:"4px"}}>{attendees.map(u=>u.name).join(" & ")}</span>
+              </div>
+            </div>);
+          })}
+        </div>
+      </div>}
+
       <div style={{display:"flex",gap:"8px",marginBottom:"14px",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap"}}>
         <div style={{display:"flex",gap:"8px",flexWrap:"wrap"}}>{[["shows","Show Log"],["tales","Tales"],["videos","Videos"]].map(([id,label])=><button key={id} onClick={()=>setGroupTab(id)} style={filterPill(groupTab===id,band.color)}>{label}</button>)}</div>
-        {groupTab!=="videos"&&<button onClick={()=>groupTab==="shows"?onAddPost():setShowTaleModal(true)} style={{background:`linear-gradient(135deg,${band.color},${band.accent||band.color}88)`,border:"none",color:C.bgDeep,borderRadius:"24px",padding:"8px 16px",fontFamily:T.head,fontSize:"12px",cursor:"pointer",fontWeight:"700"}}>+ {groupTab==="shows"?"Log Show":"Share Tale"}</button>}
+        <div style={{display:"flex",gap:"8px"}}>
+          <button onClick={()=>setShowGoingModal(true)} style={{background:"none",border:`1px solid ${band.color}66`,color:band.color,borderRadius:"24px",padding:"8px 14px",fontFamily:T.head,fontSize:"12px",cursor:"pointer",fontWeight:"700"}}>📅 I'm Going</button>
+          {groupTab!=="videos"&&<button onClick={()=>groupTab==="shows"?onAddPost():setShowTaleModal(true)} style={{background:`linear-gradient(135deg,${band.color},${band.accent||band.color}88)`,border:"none",color:C.bgDeep,borderRadius:"24px",padding:"8px 16px",fontFamily:T.head,fontSize:"12px",cursor:"pointer",fontWeight:"700"}}>+ {groupTab==="shows"?"Log Show":"Share Tale"}</button>}
+        </div>
       </div>
-      {groupTab==="shows"&&(bandShows.length===0?<Empty>No shows logged yet. Be the first!</Empty>:<div style={{display:"flex",flexDirection:"column",gap:"10px"}}>{bandShows.map(p=>{const author=users.find(u=>u.id===p.userId);return(<div key={p.id} style={{background:C.bgCard,border:`1px solid ${C.border}`,borderLeft:`4px solid ${band.color}`,borderRadius:"16px",padding:"16px"}}><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"10px"}}><div style={{display:"flex",alignItems:"center",gap:"10px"}}><Avatar user={author} size={28}/><span style={{color:C.sandDim,fontFamily:T.head,fontSize:"12px",fontWeight:"700"}}>{author?.name}</span></div><span style={{color:C.mutedDim,fontFamily:T.mono,fontSize:"11px"}}>{p.date}</span></div><div style={{color:C.white,fontFamily:T.display,fontSize:"15px",fontWeight:"700",marginBottom:"4px"}}>{p.venue}</div><div style={{color:band.color,fontSize:"13px",letterSpacing:"2px"}}>{stars(p.rating)}</div>{p.notes&&<div style={{color:C.muted,fontStyle:"italic",fontFamily:T.body,fontSize:"12px",marginTop:"8px",lineHeight:"1.5"}}>"{p.notes.slice(0,120)}{p.notes.length>120?"…":""}"</div>}</div>);})}</div>)}
+      {groupTab==="shows"&&(bandShows.length===0?<Empty>No shows logged yet. Be the first!</Empty>:<div style={{display:"flex",flexDirection:"column",gap:"10px"}}>{bandShows.map(p=>{const author=users.find(u=>u.id===p.userId);const goingUsers=(p.going||[]).map(id=>users.find(u=>u.id===id)).filter(Boolean);return(<div key={p.id} style={{background:C.bgCard,border:`1px solid ${C.border}`,borderLeft:`4px solid ${band.color}`,borderRadius:"16px",padding:"16px"}}><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"10px"}}><div style={{display:"flex",alignItems:"center",gap:"10px"}}><Avatar user={author} size={28}/><span style={{color:C.sandDim,fontFamily:T.head,fontSize:"12px",fontWeight:"700"}}>{author?.name}</span></div><span style={{color:C.mutedDim,fontFamily:T.mono,fontSize:"11px"}}>{p.date}</span></div><div style={{color:C.white,fontFamily:T.display,fontSize:"15px",fontWeight:"700",marginBottom:"4px"}}>{p.venue}</div><div style={{color:band.color,fontSize:"13px",letterSpacing:"2px"}}>{stars(p.rating)}</div>{p.notes&&<div style={{color:C.muted,fontStyle:"italic",fontFamily:T.body,fontSize:"12px",marginTop:"8px",lineHeight:"1.5"}}>"{p.notes.slice(0,120)}{p.notes.length>120?"…":""}"</div>}{goingUsers.length>0&&<div style={{display:"flex",gap:"4px",alignItems:"center",marginTop:"10px",flexWrap:"wrap"}}><span style={{color:C.mutedDim,fontFamily:T.head,fontSize:"10px",fontWeight:"700"}}>Going:</span>{goingUsers.map(u=><Avatar key={u.id} user={u} size={20}/>)}<span style={{color:C.mutedDim,fontFamily:T.body,fontSize:"11px"}}>{goingUsers.map(u=>u.name).join(", ")}</span></div>}</div>);})}</div>)}
       {groupTab==="tales"&&(bandTales.length===0?<Empty>No tales yet. Share a story from the lot!</Empty>:<div style={{display:"flex",flexDirection:"column",gap:"12px"}}>{bandTales.map(t=>{const author=users.find(u=>u.id===t.userId);const isExp=expandedTale===t.id;const isOwn=t.userId===currentUserId;return(<div key={t.id} style={{background:C.bgCard,border:`1px solid ${C.border}`,borderTop:`3px solid ${band.color}`,borderRadius:"16px",overflow:"hidden"}}><div style={{padding:"18px"}}><div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:"12px"}}><div style={{display:"flex",gap:"10px",alignItems:"center"}}><Avatar user={author} size={32}/><div><div style={{color:C.sandDim,fontFamily:T.head,fontSize:"12px",fontWeight:"700"}}>{author?.name}</div><div style={{color:C.mutedDim,fontFamily:T.mono,fontSize:"10px"}}>{t.date}</div></div></div>{isOwn&&<button onClick={()=>onDeleteTale(t.id)} style={{background:"none",border:"none",color:C.mutedDim,cursor:"pointer",fontSize:"18px"}}>×</button>}</div><div style={{color:C.white,fontFamily:T.display,fontSize:"18px",fontWeight:"700",marginBottom:"10px"}}>{t.title}</div>{t.taleImg&&<img src={t.taleImg} alt="" style={{width:"100%",borderRadius:"12px",marginBottom:"12px",maxHeight:"240px",objectFit:"cover"}}/>}<div style={{color:C.muted,fontFamily:T.body,fontSize:"14px",lineHeight:"1.8",whiteSpace:"pre-wrap"}}>{isExp?t.body:t.body.slice(0,220)+(t.body.length>220?"…":"")}</div>{t.body.length>220&&<button onClick={()=>setExpandedTale(isExp?null:t.id)} style={{background:"none",border:"none",color:band.color,fontFamily:T.head,fontSize:"12px",fontWeight:"700",cursor:"pointer",padding:"8px 0 0"}}>{isExp?"Read less ▲":"Read more ▼"}</button>}</div></div>);})}</div>)}
-      {groupTab==="videos"&&(bandVideos.length===0?<Empty>No videos for {band.name} yet.</Empty>:<div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(240px,1fr))",gap:"14px"}}>{bandVideos.map(v=><VideoCard key={v.id} video={v} onPlay={setPlaying}/>)}</div>)}
+      {groupTab==="videos"&&(bandVideos.length===0?<Empty>No videos for {band.name} yet.</Empty>:<div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(240px,1fr))",gap:"14px"}}>{bandVideos.map(v=><VideoCard key={v.id} video={v} onPlay={setPlaying} onShare={onShareVideo}/>)}</div>)}
       <VideoPlayer video={playing} onClose={()=>setPlaying(null)}/>
       {showTaleModal&&<AddTaleModal bandId={band.id} onAdd={data=>{onAddTale({...data,userId:currentUserId,date:new Date().toISOString().slice(0,10),id:Date.now()});setShowTaleModal(false);}} onClose={()=>setShowTaleModal(false)}/>}
+      {showGoingModal&&<GoingToShowModal band={band} onAdd={data=>{onGoingToShow({...data,band:band.id});setShowGoingModal(false);}} onClose={()=>setShowGoingModal(false)}/>}
     </div>
   );
 }
@@ -905,8 +989,35 @@ export default function LotLink(){
     await db.upsertPost(updated);
     if(post.userId!==currentUserId)await db.addNotification({toId:post.userId,fromId:currentUserId,text:`${currentUser?.name} commented on your post`});
   };
-  const handleDeletePost=async id=>{setPosts(prev=>prev.filter(p=>p.id!==id));await db.deletePost(id);};
+  const handleReact=async(postId,reactionKey)=>{
+    const post=posts.find(p=>p.id===postId);if(!post)return;
+    const reactions={...(post.reactions||{})};
+    const current=reactions[reactionKey]||[];
+    const alreadyReacted=current.includes(currentUserId);
+    reactions[reactionKey]=alreadyReacted?current.filter(x=>x!==currentUserId):[...current,currentUserId];
+    const updated={...post,reactions};
+    setPosts(prev=>prev.map(p=>p.id===postId?updated:p));
+    await db.upsertPost(updated);
+    if(!alreadyReacted&&post.userId!==currentUserId)await db.addNotification({toId:post.userId,fromId:currentUserId,text:`${currentUser?.name} reacted to your post`});
+  };
+  const handleGoingToShow=async data=>{
+    // Find existing show post for this venue+date+band, add user to going[], or create new upcoming post
+    const existing=posts.find(p=>p.type==="show"&&p.band===data.band&&p.venue===data.venue&&p.date===data.date);
+    if(existing){
+      const updated={...existing,going:[...(existing.going||[]).filter(x=>x!==currentUserId),currentUserId]};
+      setPosts(prev=>prev.map(p=>p.id===existing.id?updated:p));
+      await db.upsertPost(updated);
+    }else{
+      const p={id:Date.now(),userId:currentUserId,type:"show",band:data.band,date:data.date,venue:data.venue,setlist:"",notes:data.notes||"Upcoming show",rating:0,going:[currentUserId],likedBy:[],comments:[],reactions:{}};
+      await db.upsertPost(p);setPosts(prev=>[p,...prev]);
+    }
+  };
+  const handleShareVideo=async video=>{
+    const p={id:Date.now(),userId:currentUserId,type:"wall",profileId:currentUserId,text:`🎸 Sharing this one with the lot — ${video.title}`,wallImg:null,sharedVideoId:video.id,sharedVideo:video,date:new Date().toISOString().slice(0,10),likedBy:[],comments:[],reactions:{}};
+    await db.upsertPost(p);setPosts(prev=>[p,...prev]);
+  };
   const handleDeleteTale=async id=>{setTales(prev=>prev.filter(t=>t.id!==id));await db.deleteTale(id);};
+  const handleDeletePost=async id=>{setPosts(prev=>prev.filter(p=>p.id!==id));await db.deletePost(id);};
   const handleUpdateProfile=async(userId,patch)=>{
     const user=users.find(u=>u.id===userId);if(!user)return;
     const updated={...user,...patch};
@@ -957,7 +1068,7 @@ export default function LotLink(){
 
   if(showDMs)return wrap(<DMScreen currentUserId={currentUserId} users={users} messages={messages} onSend={handleSendDM} onBack={()=>setShowDMs(false)} onMarkRead={handleMarkDMRead}/>);
   if(viewProfile)return wrap(<ProfilePage user={viewProfile} {...profileProps} onBack={()=>setViewProfile(null)} onSendDM={()=>{setViewProfile(null);setShowDMs(true);}}/>);
-  if(viewGroup)return wrap(<><GroupPage band={viewGroup} posts={posts} tales={tales} videos={videos} users={users} currentUserId={currentUserId} onBack={()=>setViewGroup(null)} onAddPost={()=>{setDefaultBand(viewGroup.id);setShowAddPost(true);}} onAddTale={addTale} onDeleteTale={handleDeleteTale}/>{showAddPost&&<AddShowModal onAdd={addPost} onClose={()=>setShowAddPost(false)} defaultBand={defaultBand}/>}</>);
+  if(viewGroup)return wrap(<><GroupPage band={viewGroup} posts={posts} tales={tales} videos={videos} users={users} currentUserId={currentUserId} onBack={()=>setViewGroup(null)} onAddPost={()=>{setDefaultBand(viewGroup.id);setShowAddPost(true);}} onAddTale={addTale} onDeleteTale={handleDeleteTale} onGoingToShow={handleGoingToShow} onShareVideo={handleShareVideo}/>{showAddPost&&<AddShowModal onAdd={addPost} onClose={()=>setShowAddPost(false)} defaultBand={defaultBand}/>}</>);
 
   return wrap(
     <div style={{maxWidth:"720px",margin:"0 auto",padding:"24px 20px"}}>
@@ -970,7 +1081,7 @@ export default function LotLink(){
         </div>
         {feedPosts.length===0
           ?<Empty>{friends.length===0?"Add some friends to see their posts here 〜":"No posts yet — be the first to share something!"}</Empty>
-          :<div style={{display:"flex",flexDirection:"column",gap:"14px"}}>{feedPosts.map(p=><WallCard key={p.id} post={p} users={users} currentUserId={currentUserId} onLike={handleLike} onComment={handleComment} onDelete={handleDeletePost}/>)}</div>}
+          :<div style={{display:"flex",flexDirection:"column",gap:"14px"}}>{feedPosts.map(p=><WallCard key={p.id} post={p} users={users} currentUserId={currentUserId} onLike={handleLike} onReact={handleReact} onComment={handleComment} onDelete={handleDeletePost} onShareVideo={v=>{setSearchPlayingVideo(v);}}/>)}</div>}
       </>)}
       {tab==="groups"&&(<>
         <div style={{color:C.muted,fontFamily:T.head,fontSize:"11px",letterSpacing:"3px",fontWeight:"700",marginBottom:"16px"}}>BAND GROUPS</div>
@@ -989,7 +1100,7 @@ export default function LotLink(){
           })}
         </div>
       </>)}
-      {tab==="jams"&&<JamsTV videos={videos} currentUserId={currentUserId} onSubmitVideo={handleSubmitVideo}/>}
+      {tab==="jams"&&<JamsTV videos={videos} currentUserId={currentUserId} onSubmitVideo={handleSubmitVideo} onShareVideo={handleShareVideo}/>}
       {tab==="crew"&&(<>
         <div style={{color:C.muted,fontFamily:T.head,fontSize:"11px",letterSpacing:"3px",fontWeight:"700",marginBottom:"16px"}}>YOUR LOT CREW ({friends.length})</div>
         {friends.length===0?<Empty>No friends yet. Add them from the feed.</Empty>
