@@ -1061,7 +1061,7 @@ export default function LotLink(){
   useEffect(()=>{
     if(!currentUserId)return;
     const msgSub=supabase.channel("messages-rt").on("postgres_changes",{event:"INSERT",schema:"public",table:"messages"},p=>{const m=p.new;if(m.to_id===currentUserId||m.from_id===currentUserId)setMessages(prev=>[...prev,{...m,fromId:m.from_id,toId:m.to_id}]);}).subscribe();
-    const notifSub=supabase.channel("notifs-rt").on("postgres_changes",{event:"INSERT",schema:"public",table:"notifications"},p=>{const n=p.new;if(n.to_id===currentUserId)setNotifications(prev=>[{...n,toId:n.to_id,fromId:n.from_id},...prev]);}).subscribe();
+    const notifSub=supabase.channel("notifs-rt").on("postgres_changes",{event:"INSERT",schema:"public",table:"notifications"},p=>{const n=p.new;if(n.to_id===currentUserId&&n.from_id!==currentUserId)setNotifications(prev=>[{...n,toId:n.to_id,fromId:n.from_id},...prev]);}).subscribe();
     const postSub=supabase.channel("posts-rt").on("postgres_changes",{event:"*",schema:"public",table:"posts"},()=>{db.getPosts().then(setPosts);}).subscribe();
     const userSub=supabase.channel("users-rt").on("postgres_changes",{event:"*",schema:"public",table:"users"},()=>{db.getUsers().then(setUsers);}).subscribe();
     return()=>{supabase.removeChannel(msgSub);supabase.removeChannel(notifSub);supabase.removeChannel(postSub);supabase.removeChannel(userSub);};
