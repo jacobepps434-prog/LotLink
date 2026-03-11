@@ -1138,6 +1138,7 @@ export default function LotLink(){
   const[notifications,setNotifications]=useState([]);
   const[loading,setLoading]=useState(true);
   const[tab,setTab]=useState("feed");
+  const[showDisclaimer,setShowDisclaimer]=useState(true);
   const[showAddPost,setShowAddPost]=useState(false);
   const[viewProfile,setViewProfile]=useState(null);
   const[viewGroup,setViewGroup]=useState(null);
@@ -1359,6 +1360,25 @@ export default function LotLink(){
   return wrap(
     <div style={{maxWidth:"720px",margin:"0 auto",padding:"24px 20px"}}>
       {tab==="feed"&&(<>
+        {/* Disclaimer popup */}
+        {showDisclaimer&&<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.75)",zIndex:400,display:"flex",alignItems:"center",justifyContent:"center",padding:"24px",backdropFilter:"blur(6px)"}}>
+          <div style={{background:C.bgCard,border:`1px solid ${C.teal}55`,borderRadius:"24px",padding:"28px 28px 24px",maxWidth:"420px",width:"100%",boxShadow:`0 16px 48px rgba(0,0,0,0.6), 0 0 40px ${C.teal}22`}}>
+            <div style={{textAlign:"center",marginBottom:"18px"}}>
+              <div style={{fontSize:"32px",marginBottom:"8px"}}>🎸</div>
+              <div style={{color:C.teal,fontFamily:T.display,fontSize:"20px",fontWeight:"700",marginBottom:"4px"}}>Welcome to LotLink</div>
+              <div style={{color:C.mutedDim,fontFamily:T.body,fontSize:"12px"}}>A heads-only social network</div>
+            </div>
+            <div style={{background:C.bgDeep,border:`1px solid ${C.border}`,borderRadius:"14px",padding:"14px 16px",marginBottom:"18px"}}>
+              <p style={{color:C.sandDim,fontFamily:T.body,fontSize:"13px",lineHeight:"1.7",margin:"0 0 10px"}}>
+                🔒 <strong style={{color:C.white}}>This app is owned by Jacob Epps.</strong> Unauthorized use, copying, or modification of this application is not permitted.
+              </p>
+              <p style={{color:C.sandDim,fontFamily:T.body,fontSize:"13px",lineHeight:"1.7",margin:0}}>
+                🚧 LotLink is <strong style={{color:C.gold}}>actively under construction</strong> — things may change or break from time to time. If you run into any issues, please DM <span style={{color:C.teal,fontWeight:"700"}}>BoogMagoo</span> and let me know!
+              </p>
+            </div>
+            <Btn onClick={()=>setShowDisclaimer(false)} style={{width:"100%",justifyContent:"center"}}>Let's go 〜 🤙</Btn>
+          </div>
+        </div>}
         {/* Post composer */}
         <div style={{background:C.bgCard,border:`1px solid ${C.border}`,borderRadius:"20px",padding:"16px 18px",marginBottom:"20px",display:"flex",gap:"12px",alignItems:"center",cursor:"pointer"}} onClick={()=>setShowAddPost(true)}>
           <Avatar user={currentUser} size={40}/>
