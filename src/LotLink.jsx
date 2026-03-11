@@ -43,8 +43,8 @@ const db={
   async getMessages(uid){const{data}=await supabase.from("messages").select("*").or(`from_id.eq.${uid},to_id.eq.${uid}`).order("created_at",{ascending:true});return(data||[]).map(m=>({...m,fromId:m.from_id,toId:m.to_id}));},
   async sendMessage(m){await supabase.from("messages").insert({id:m.id,from_id:m.fromId,to_id:m.toId,text:m.text,read:false});},
   async markMessagesRead(fromId,toId){await supabase.from("messages").update({read:true}).eq("from_id",fromId).eq("to_id",toId);},
-  async getNotifications(uid){const{data}=await supabase.from("notifications").select("*").eq("to_id",uid).order("created_at",{ascending:false});return(data||[]).map(n=>({...n,toId:n.to_id,fromId:n.from_id}));},
-  async addNotification(n){await supabase.from("notifications").insert({to_id:n.toId,from_id:n.fromId,text:n.text,read:false});},
+  async getNotifications(uid){const{data}=await supabase.from("notifications").select("*").eq("to_id",uid).order("created_at",{ascending:false});return(data||[]).map(n=>({...n,toId:n.to_id,fromId:n.from_id,refId:n.ref_id,refType:n.ref_type}));},
+  async addNotification(n){await supabase.from("notifications").insert({to_id:n.toId,from_id:n.fromId,text:n.text,read:false,ref_id:n.refId||null,ref_type:n.refType||null});},
   async markNotifsRead(uid){await supabase.from("notifications").update({read:true}).eq("to_id",uid);},
   async deleteUser(uid){
     await supabase.from("posts").delete().eq("user_id",uid);
@@ -53,7 +53,7 @@ const db={
     await supabase.from("notifications").delete().or(`to_id.eq.${uid},from_id.eq.${uid}`);
     await supabase.from("users").delete().eq("id",uid);
   },
-  async sendFriendRequest(fromId,toId){await supabase.from("notifications").insert({to_id:toId,from_id:fromId,text:`__FRIENDREQ__`,read:false});},
+  async sendFriendRequest(fromId,toId){const{error}=await supabase.from("notifications").insert({to_id:toId,from_id:fromId,text:"__FRIENDREQ__",read:false});if(error)console.error("Friend request failed:",error);return !error;},
   async acceptFriendRequest(notifId,meId,fromId,allUsers){
     const me=allUsers.find(u=>u.id===meId);
     const other=allUsers.find(u=>u.id===fromId);
@@ -355,7 +355,7 @@ function BottomNav({tab,setTab,unreadNotifs,unreadDMs,onOpenSearch}){
 }
 
 // ── NOTIFICATIONS ─────────────────────────────────────────────────────────────
-function NotifPanel({notifications,users,onClose,onMarkRead,onAcceptFriend,onDeclineFriend}){
+function NotifPanel({notifications,users,onClose,onMarkRead,onAcceptFriend,onDeclineFriend,onNavigate}){
   return(
     <div style={{position:"fixed",inset:0,zIndex:200}} onClick={e=>e.target===e.currentTarget&&onClose()}>
       <div style={{position:"absolute",top:"64px",right:"20px",background:C.bgCard,border:`1px solid ${C.border}`,borderRadius:"20px",width:"360px",maxHeight:"500px",overflowY:"auto",boxShadow:`0 20px 60px rgba(0,0,0,0.7)`}}>
@@ -369,16 +369,23 @@ function NotifPanel({notifications,users,onClose,onMarkRead,onAcceptFriend,onDec
             const from=users.find(u=>u.id===n.fromId);
             const isFriendReq=n.text==="__FRIENDREQ__";
             const isFriendAcc=n.text==="__FRIENDACC__";
+            const isClickable=!isFriendReq&&(n.refType==="post"||n.refType==="jams"||n.refType==="profile");
             const displayText=isFriendReq?`${from?.name||"Someone"} sent you a friend request`:isFriendAcc?`${from?.name||"Someone"} accepted your friend request`:n.text;
             return(
-              <div key={i} style={{padding:"14px 20px",borderBottom:`1px solid ${C.borderLt}`,background:n.read?"none":`${C.teal}08`,display:"flex",gap:"12px",alignItems:"flex-start"}}>
+              <div key={i} onClick={()=>{if(isClickable){onNavigate(n);onClose();}}}
+                style={{padding:"14px 20px",borderBottom:`1px solid ${C.borderLt}`,background:n.read?"none":`${C.teal}08`,display:"flex",gap:"12px",alignItems:"flex-start",cursor:isClickable?"pointer":"default",transition:"background 0.15s"}}
+                onMouseEnter={e=>{if(isClickable)e.currentTarget.style.background=`${C.teal}12`;}}
+                onMouseLeave={e=>{e.currentTarget.style.background=n.read?"none":`${C.teal}08`;}}>
                 <Avatar user={from} size={36}/>
                 <div style={{flex:1}}>
                   <div style={{color:n.read?C.sandDim:C.white,fontFamily:T.body,fontSize:"13px",lineHeight:"1.5"}}>{displayText}</div>
-                  <div style={{color:C.mutedDim,fontFamily:T.mono,fontSize:"11px",marginTop:"3px"}}>{new Date(n.created_at).toLocaleTimeString()}</div>
+                  <div style={{color:C.mutedDim,fontFamily:T.mono,fontSize:"11px",marginTop:"3px",display:"flex",gap:"8px",alignItems:"center"}}>
+                    {new Date(n.created_at).toLocaleTimeString()}
+                    {isClickable&&<span style={{color:C.teal,fontSize:"10px",fontWeight:"700",fontFamily:T.head}}>TAP TO VIEW →</span>}
+                  </div>
                   {isFriendReq&&<div style={{display:"flex",gap:"8px",marginTop:"10px"}}>
-                    <button onClick={()=>onAcceptFriend(n.id,n.fromId)} style={{background:G.teal,border:"none",color:C.bgDeep,borderRadius:"16px",padding:"6px 14px",fontFamily:T.head,fontSize:"11px",fontWeight:"700",cursor:"pointer"}}>✓ Accept</button>
-                    <button onClick={()=>onDeclineFriend(n.id)} style={{background:"none",border:`1px solid ${C.border}`,color:C.muted,borderRadius:"16px",padding:"6px 14px",fontFamily:T.head,fontSize:"11px",fontWeight:"700",cursor:"pointer"}}>✕ Decline</button>
+                    <button onClick={e=>{e.stopPropagation();onAcceptFriend(n.id,n.fromId);}} style={{background:G.teal,border:"none",color:C.bgDeep,borderRadius:"16px",padding:"6px 14px",fontFamily:T.head,fontSize:"11px",fontWeight:"700",cursor:"pointer"}}>✓ Accept</button>
+                    <button onClick={e=>{e.stopPropagation();onDeclineFriend(n.id);}} style={{background:"none",border:`1px solid ${C.border}`,color:C.muted,borderRadius:"16px",padding:"6px 14px",fontFamily:T.head,fontSize:"11px",fontWeight:"700",cursor:"pointer"}}>✕ Decline</button>
                   </div>}
                 </div>
                 {!n.read&&!isFriendReq&&<div style={{width:"8px",height:"8px",borderRadius:"50%",background:C.teal,flexShrink:0,marginTop:"4px"}}/>}
@@ -1139,6 +1146,7 @@ export default function LotLink(){
   const[loading,setLoading]=useState(true);
   const[tab,setTab]=useState("feed");
   const[showDisclaimer,setShowDisclaimer]=useState(true);
+  const[sentRequests,setSentRequests]=useState([]);
   const[showAddPost,setShowAddPost]=useState(false);
   const[viewProfile,setViewProfile]=useState(null);
   const[viewGroup,setViewGroup]=useState(null);
@@ -1166,12 +1174,13 @@ export default function LotLink(){
     if(!currentUserId)return;
     db.getMessages(currentUserId).then(setMessages);
     db.getNotifications(currentUserId).then(setNotifications);
+      supabase.from("notifications").select("to_id").eq("from_id",currentUserId).eq("text","__FRIENDREQ__").then(({data})=>{if(data)setSentRequests(data.map(r=>r.to_id));});
   },[currentUserId]);
 
   useEffect(()=>{
     if(!currentUserId)return;
     const msgSub=supabase.channel("messages-rt").on("postgres_changes",{event:"INSERT",schema:"public",table:"messages"},p=>{const m=p.new;if(m.to_id===currentUserId||m.from_id===currentUserId)setMessages(prev=>[...prev,{...m,fromId:m.from_id,toId:m.to_id}]);}).subscribe();
-    const notifSub=supabase.channel("notifs-rt").on("postgres_changes",{event:"INSERT",schema:"public",table:"notifications"},p=>{const n=p.new;if(n.to_id===currentUserId&&n.from_id!==currentUserId)setNotifications(prev=>[{...n,toId:n.to_id,fromId:n.from_id},...prev]);}).subscribe();
+    const notifSub=supabase.channel("notifs-rt").on("postgres_changes",{event:"INSERT",schema:"public",table:"notifications"},p=>{const n=p.new;if(n.to_id===currentUserId&&n.from_id!==currentUserId)setNotifications(prev=>[{...n,toId:n.to_id,fromId:n.from_id,refId:n.ref_id,refType:n.ref_type},...prev]);}).subscribe();
     const postSub=supabase.channel("posts-rt").on("postgres_changes",{event:"*",schema:"public",table:"posts"},()=>{db.getPosts().then(setPosts);}).subscribe();
     const userSub=supabase.channel("users-rt").on("postgres_changes",{event:"*",schema:"public",table:"users"},()=>{db.getUsers().then(setUsers);}).subscribe();
     return()=>{supabase.removeChannel(msgSub);supabase.removeChannel(notifSub);supabase.removeChannel(postSub);supabase.removeChannel(userSub);};
@@ -1209,22 +1218,25 @@ export default function LotLink(){
     const updated={...post,likedBy:newLikedBy};
     setPosts(prev=>prev.map(p=>p.id===postId?updated:p));
     await db.upsertPost(updated);
-    if(!liked&&post.userId!==currentUserId)await db.addNotification({toId:post.userId,fromId:currentUserId,text:`${currentUser?.name} liked your post at ${post.venue}`});
+    if(!liked&&post.userId!==currentUserId)await db.addNotification({toId:post.userId,fromId:currentUserId,text:`${currentUser?.name} liked your post`,refId:String(post.id),refType:"post"});
   };
   const handleSendFriendRequest=async userId=>{
-    const alreadyPending=notifications.some(n=>n.fromId===currentUserId&&n.toId===userId&&n.text==="__FRIENDREQ__");
-    if(alreadyPending)return;
-    await db.sendFriendRequest(currentUserId,userId);
-    setNotifications(prev=>[...prev,{toId:userId,fromId:currentUserId,text:"__FRIENDREQ__",read:false,id:Date.now(),created_at:new Date().toISOString()}]);
+    const alreadySent=sentRequests.includes(userId);
+    if(alreadySent)return;
+    const ok=await db.sendFriendRequest(currentUserId,userId);
+    if(ok)setSentRequests(prev=>[...prev,userId]);
   };
   const handleAcceptFriend=async(notifId,fromId)=>{
     const result=await db.acceptFriendRequest(notifId,currentUserId,fromId,users);
     setUsers(prev=>prev.map(u=>u.id===currentUserId?{...u,...result.updMe,favBand:result.updMe.fav_band||result.updMe.favBand}:u.id===fromId?{...u,...result.updOther,favBand:result.updOther.fav_band||result.updOther.favBand}:u));
     setNotifications(prev=>prev.filter(n=>n.id!==notifId));
+    setSentRequests(prev=>prev.filter(id=>id!==fromId));
   };
   const handleDeclineFriend=async notifId=>{
+    const notif=notifications.find(n=>n.id===notifId);
     await db.declineFriendRequest(notifId);
     setNotifications(prev=>prev.filter(n=>n.id!==notifId));
+    if(notif)setSentRequests(prev=>prev.filter(id=>id!==notif.fromId));
   };
   const handleDeleteAccount=async()=>{
     if(!window.confirm("Delete your account? This cannot be undone. All your posts, shows, and tales will be removed."))return;
@@ -1237,7 +1249,7 @@ export default function LotLink(){
     const updated={...post,comments:[...(post.comments||[]),{userId:currentUserId,text}]};
     setPosts(prev=>prev.map(p=>p.id===postId?updated:p));
     await db.upsertPost(updated);
-    if(post.userId!==currentUserId)await db.addNotification({toId:post.userId,fromId:currentUserId,text:`${currentUser?.name} commented on your post`});
+    if(post.userId!==currentUserId)await db.addNotification({toId:post.userId,fromId:currentUserId,text:`${currentUser?.name} commented on your post`,refId:String(post.id),refType:"post"});
   };
   const handleReact=async(postId,reactionKey)=>{
     const post=posts.find(p=>p.id===postId);if(!post)return;
@@ -1248,7 +1260,7 @@ export default function LotLink(){
     const updated={...post,reactions};
     setPosts(prev=>prev.map(p=>p.id===postId?updated:p));
     await db.upsertPost(updated);
-    if(!alreadyReacted&&post.userId!==currentUserId)await db.addNotification({toId:post.userId,fromId:currentUserId,text:`${currentUser?.name} reacted to your post`});
+    if(!alreadyReacted&&post.userId!==currentUserId)await db.addNotification({toId:post.userId,fromId:currentUserId,text:`${currentUser?.name} reacted to your post`,refId:String(post.id),refType:"post"});
   };
   const handleGoingToShow=async data=>{
     // Find existing show post for this venue+date+band, add user to going[], or create new upcoming post
@@ -1267,6 +1279,18 @@ export default function LotLink(){
     await db.upsertPost(p);setPosts(prev=>[p,...prev]);
   };
   const handleDeleteTale=async id=>{setTales(prev=>prev.filter(t=>t.id!==id));await db.deleteTale(id);};
+  const handleNotifNavigate=n=>{
+    if(n.refType==="post"){
+      // find the post author and navigate to their profile, or go to feed
+      const post=posts.find(p=>String(p.id)===String(n.refId));
+      if(post){const author=users.find(u=>u.id===post.userId);if(author)setViewProfile(author);}
+      setTab("feed");
+    } else if(n.refType==="jams"){
+      setTab("jams");
+    } else if(n.refType==="profile"){
+      const u=users.find(u=>u.id===n.refId);if(u)setViewProfile(u);
+    }
+  };
   const handleDeletePost=async id=>{setPosts(prev=>prev.filter(p=>p.id!==id));await db.deletePost(id);};
   const handleVideoReact=async(videoId,reactionKey)=>{
     const existing=videoInteractions.find(i=>i.video_id===videoId&&i.type==="reaction"&&i.user_id===currentUserId);
@@ -1304,12 +1328,12 @@ export default function LotLink(){
     const updated={...video,approved:true};
     setVideos(prev=>prev.map(v=>v.id===video.id?updated:v));
     await db.upsertVideo(updated);
-    if(video.submittedBy)await db.addNotification({toId:video.submittedBy,fromId:currentUserId,text:`✓ Your video "${video.title}" was approved and is now live on Jams TV!`});
+    if(video.submittedBy)await db.addNotification({toId:video.submittedBy,fromId:currentUserId,text:`✓ Your video "${video.title}" was approved and is now live on Jams TV!`,refId:video.id,refType:"jams"});
   };
   const handleRejectVideo=async video=>{
     setVideos(prev=>prev.filter(v=>v.id!==video.id));
     await supabase.from("videos").delete().eq("id",video.id);
-    if(video.submittedBy)await db.addNotification({toId:video.submittedBy,fromId:currentUserId,text:`Your video "${video.title}" was not approved for Jams TV.`});
+    if(video.submittedBy)await db.addNotification({toId:video.submittedBy,fromId:currentUserId,text:`Your video "${video.title}" was not approved for Jams TV.`,refType:"jams"});
   };
   const handleSubmitVideo=async v=>{await db.upsertVideo(v);setVideos(prev=>[...prev,v]);};
   const handleSendDM=async(toId,text)=>{
@@ -1326,7 +1350,7 @@ export default function LotLink(){
   };
   const handleLogout=()=>{localStorage.removeItem("lotlink-uid");setCurrentUserId(null);};
 
-  const pendingOutgoing=notifications.filter(n=>n.fromId===currentUserId&&n.text==="__FRIENDREQ__").map(n=>n.toId);
+  const pendingOutgoing=sentRequests;
   const showPosts=posts.filter(p=>p.type==="show");
   const wallPosts=posts.filter(p=>p.type==="wall");
   const friendIds=(currentUser?.friends||[]);
@@ -1334,7 +1358,7 @@ export default function LotLink(){
   const friends=friendIds.map(id=>users.find(u=>u.id===id)).filter(Boolean);
   // Only count non-friendreq notifs as unread badge (friend requests always show until acted on)
   const unreadNotifs=notifications.filter(n=>!n.read&&n.text!=="__FRIENDREQ__"&&n.text!=="__FRIENDACC__").length;
-  const pendingFriendReqs=notifications.filter(n=>n.text==="__FRIENDREQ__").length;
+  const pendingFriendReqs=notifications.filter(n=>n.text==="__FRIENDREQ__"&&n.toId===currentUserId).length;
   const totalNotifBadge=unreadNotifs+pendingFriendReqs;
   const unreadDMs=messages.filter(m=>m.toId===currentUserId&&!m.read).length;
   const profileProps={posts,wallPosts,users,currentUserId,onUpdate:handleUpdateProfile,onAddWallPost:addWallPost,onLikeWall:handleLike,onCommentWall:handleComment,onDeleteWall:handleDeletePost,onAddFriend:handleSendFriendRequest,onDeleteAccount:handleDeleteAccount,pendingOutgoing,onViewProfile:setViewProfile};
@@ -1346,7 +1370,7 @@ export default function LotLink(){
       {!isMobile&&<TopBar {...navProps}/>}
       {children}
       {isMobile&&<BottomNav tab={tab} setTab={navSetTab} unreadNotifs={unreadNotifs} unreadDMs={unreadDMs} onOpenSearch={()=>setShowSearch(true)}/>}
-      {showNotifs&&<NotifPanel notifications={notifications} users={users} onClose={()=>setShowNotifs(false)} onMarkRead={handleMarkNotifsRead} onAcceptFriend={handleAcceptFriend} onDeclineFriend={handleDeclineFriend}/>}
+      {showNotifs&&<NotifPanel notifications={notifications} users={users} onClose={()=>setShowNotifs(false)} onMarkRead={handleMarkNotifsRead} onAcceptFriend={handleAcceptFriend} onDeclineFriend={handleDeclineFriend} onNavigate={handleNotifNavigate}/>}
       {showSearch&&<SearchOverlay users={users} posts={posts} videos={videos} onClose={()=>setShowSearch(false)} onViewProfile={u=>{setViewProfile(u);navSetTab("feed");}} onViewGroup={b=>{setViewGroup(b);}} onPlayVideo={v=>setSearchPlayingVideo(v)}/>}
       <VideoPlayer video={searchPlayingVideo} onClose={()=>setSearchPlayingVideo(null)}/>
       {shareVideoTarget&&<ShareVideoModal video={shareVideoTarget} onShare={handleShareVideo} onClose={()=>setShareVideoTarget(null)}/>}
