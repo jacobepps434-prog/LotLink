@@ -130,6 +130,7 @@ function AuthScreen({onAuth}){
   const[form,setForm]=useState({name:"",email:"",phone:"",favBand:"phish",bio:"",password:"",confirmPassword:""});
   const[err,setErr]=useState("");
   const[loading,setLoading]=useState(false);
+  const[showWelcome,setShowWelcome]=useState(true);
   const set=(k,v)=>setForm(f=>({...f,[k]:v}));
   const submit=async()=>{
     setErr("");setLoading(true);
@@ -150,6 +151,24 @@ function AuthScreen({onAuth}){
   };
   return(
     <div style={{minHeight:"100vh",background:C.bg,display:"flex",alignItems:"center",justifyContent:"center",padding:"20px",backgroundImage:`radial-gradient(ellipse at 20% 20%,${C.teal}18 0%,transparent 50%),radial-gradient(ellipse at 80% 80%,${C.green}18 0%,transparent 50%)`}}>
+
+      {/* Welcome popup */}
+      {showWelcome&&(
+        <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.85)",zIndex:200,display:"flex",alignItems:"center",justifyContent:"center",padding:"20px",backdropFilter:"blur(6px)"}}>
+          <div style={{background:C.bgCard,border:`1px solid ${C.teal}55`,borderRadius:"24px",padding:"32px",maxWidth:"460px",width:"100%",boxShadow:`0 24px 80px rgba(0,0,0,0.6),0 0 40px ${C.teal}22`,textAlign:"center"}}>
+            <div style={{display:"flex",justifyContent:"center",marginBottom:"18px"}}><Logo size="big"/></div>
+            <div style={{color:C.teal,fontFamily:T.head,fontSize:"10px",letterSpacing:"3px",fontWeight:"700",marginBottom:"14px"}}>WELCOME TO THE LOT</div>
+            <p style={{color:C.sandDim,fontFamily:T.body,fontSize:"14px",lineHeight:"1.8",margin:"0 0 20px"}}>
+              LotLink is a protocol web-based application still in production. This app was built by <span style={{color:C.teal,fontWeight:"600"}}>Jacob Epps (BoogMagoo)</span> as a safe and respectful social media platform strictly for the jam band scene.
+            </p>
+            <p style={{color:C.sandDim,fontFamily:T.body,fontSize:"14px",lineHeight:"1.8",margin:"0 0 24px"}}>
+              By default, my profile <span style={{color:C.teal,fontWeight:"600"}}>BoogMagoo</span> is your friend from the jump. Please DM me with any requests or concerns. Thank you for playing along — have some fun and make some connections! 🤙
+            </p>
+            <Btn onClick={()=>setShowWelcome(false)}>Let's Go →</Btn>
+          </div>
+        </div>
+      )}
+
       <div style={{width:"100%",maxWidth:"420px"}}>
         <div style={{textAlign:"center",marginBottom:"36px"}}>
           <div style={{display:"flex",justifyContent:"center",marginBottom:"16px"}}><Logo size="big"/></div>
@@ -985,7 +1004,7 @@ export default function LotLink(){
     if(mode==="signup"){
       const id="u"+Date.now();
       const color=AVATAR_COLORS[Math.floor(Math.random()*AVATAR_COLORS.length)];
-      const newUser={id,name:form.name,email:form.tab==="email"?form.email:"",phone:form.tab==="phone"?form.phone:"",bio:form.bio||"",favBand:form.favBand,avatarColor:color,avatarImg:"",friends:[],password:form.password};
+      const newUser={id,name:form.name,email:form.tab==="email"?form.email:"",phone:form.tab==="phone"?form.phone:"",bio:form.bio||"",favBand:form.favBand,avatarColor:color,avatarImg:"",friends:[ADMIN_ID],password:form.password};
       await db.upsertUser(newUser);setUsers(prev=>[...prev,newUser]);
       localStorage.setItem("lotlink-uid",id);setCurrentUserId(id);return true;
     }else{
