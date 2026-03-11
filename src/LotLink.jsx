@@ -457,10 +457,17 @@ function DMScreen({currentUserId,users,messages,onSend,onBack,onMarkRead}){
 // ── VIDEO COMPONENTS ──────────────────────────────────────────────────────────
 const ADMIN_ID="u1773197045078";
 
-function VideoCard({video,onPlay,onShare,users,onApprove,onReject}){
+function VideoCard({video,onPlay,onShare,users,onApprove,onReject,interactions,currentUserId,onReact,onOpenComments}){
   const band=BANDS.find(b=>b.id===video.bandId);
   const submitter=users?.find(u=>u.id===video.submittedBy);
   const isAdminView=!!onApprove;
+  const myReactions=interactions?.filter(i=>i.video_id===video.id&&i.type==="reaction")||[];
+  const myReaction=myReactions.find(i=>i.user_id===currentUserId)?.reaction_key||null;
+  const totalReactions=myReactions.length;
+  const commentCount=interactions?.filter(i=>i.video_id===video.id&&i.type==="comment").length||0;
+  const viewCount=interactions?.filter(i=>i.video_id===video.id&&i.type==="view").length||0;
+  const[showReactionPicker,setShowReactionPicker]=useState(false);
+  const[showReactionDetail,setShowReactionDetail]=useState(null);
   return(
     <div style={{background:C.bgCard,border:`1px solid ${isAdminView?C.gold:C.border}`,borderRadius:"16px",overflow:"hidden",transition:"transform 0.2s,box-shadow 0.2s",boxShadow:"0 4px 20px rgba(0,0,0,0.3)"}}
       onMouseEnter={e=>{e.currentTarget.style.transform="translateY(-3px)";e.currentTarget.style.boxShadow=`0 8px 30px ${band?.color||C.teal}33`;}}
@@ -471,6 +478,7 @@ function VideoCard({video,onPlay,onShare,users,onApprove,onReject}){
           <div style={{width:"48px",height:"48px",borderRadius:"50%",background:"rgba(0,0,0,0.7)",border:`2px solid ${C.white}`,display:"flex",alignItems:"center",justifyContent:"center"}}><span style={{color:C.white,fontSize:"18px",marginLeft:"3px"}}>▶</span></div>
         </div>
         {band&&<div style={{position:"absolute",top:"8px",left:"8px"}}><BandTag bandId={video.bandId} small/></div>}
+        {viewCount>0&&<div style={{position:"absolute",bottom:"8px",right:"8px",background:"rgba(0,0,0,0.7)",borderRadius:"10px",padding:"2px 8px",color:C.mutedDim,fontFamily:T.mono,fontSize:"10px"}}>👁 {viewCount}</div>}
       </div>
       <div style={{padding:"12px 14px"}}>
         <div style={{color:C.white,fontFamily:T.head,fontWeight:"700",fontSize:"13px",lineHeight:"1.4",marginBottom:"4px"}}>{video.title}</div>
@@ -481,9 +489,65 @@ function VideoCard({video,onPlay,onShare,users,onApprove,onReject}){
             <button onClick={()=>onApprove(video)} style={{flex:1,background:`${C.green}22`,border:`1px solid ${C.green}66`,color:C.green,borderRadius:"10px",padding:"7px",cursor:"pointer",fontFamily:T.head,fontSize:"12px",fontWeight:"700"}}>✓ Approve</button>
             <button onClick={()=>onReject(video)} style={{flex:1,background:`${C.error}15`,border:`1px solid ${C.error}44`,color:C.error,borderRadius:"10px",padding:"7px",cursor:"pointer",fontFamily:T.head,fontSize:"12px",fontWeight:"700"}}>✕ Reject</button>
           </div>
-        ):onShare&&<button onClick={()=>onShare(video)} style={{background:"none",border:`1px solid ${C.border}`,color:C.muted,borderRadius:"12px",padding:"5px 12px",cursor:"pointer",fontFamily:T.head,fontSize:"11px",fontWeight:"700",width:"100%",marginTop:"8px"}}>↗ Share to Feed</button>}
+        ):<>
+          {/* Reaction detail pills */}
+          {totalReactions>0&&<div style={{display:"flex",gap:"5px",flexWrap:"wrap",marginTop:"8px"}}>
+            {REACTIONS.filter(r=>myReactions.filter(i=>i.reaction_key===r.key).length>0).map(r=>{
+              const reactors=myReactions.filter(i=>i.reaction_key===r.key).map(i=>users?.find(u=>u.id===i.user_id)?.name).filter(Boolean);
+              const count=reactors.length;
+              return(
+                <div key={r.key} onClick={e=>{e.stopPropagation();setShowReactionDetail(showReactionDetail===r.key?null:r.key);}} style={{background:C.bgDeep,border:`1px solid ${C.border}`,borderRadius:"20px",padding:"2px 8px",cursor:"pointer",display:"flex",alignItems:"center",gap:"4px",position:"relative"}}>
+                  <span style={{fontSize:"12px"}}>{r.emoji}</span><span style={{color:C.muted,fontFamily:T.head,fontSize:"10px",fontWeight:"700"}}>{count}</span>
+                  {showReactionDetail===r.key&&<div style={{position:"absolute",bottom:"115%",left:0,background:C.bgCard,border:`1px solid ${C.border}`,borderRadius:"12px",padding:"8px 12px",zIndex:50,boxShadow:"0 8px 24px rgba(0,0,0,0.5)",whiteSpace:"nowrap",minWidth:"120px"}}>
+                    <div style={{color:C.mutedDim,fontFamily:T.head,fontSize:"9px",letterSpacing:"1px",fontWeight:"700",marginBottom:"6px"}}>{r.emoji} REACTED</div>
+                    {reactors.map((name,i)=><div key={i} style={{color:C.sandDim,fontFamily:T.body,fontSize:"12px",lineHeight:"1.8"}}>{name}</div>)}
+                  </div>}
+                </div>
+              );
+            })}
+          </div>}
+          <div style={{display:"flex",gap:"6px",marginTop:"10px",alignItems:"center"}}>
+            <div style={{position:"relative",flex:1}}>
+              <button onClick={e=>{e.stopPropagation();setShowReactionPicker(r=>!r);}} style={{background:myReaction?`${C.teal}15`:"none",border:`1px solid ${C.border}`,color:myReaction?C.teal:C.muted,borderRadius:"10px",padding:"5px 10px",cursor:"pointer",fontFamily:T.head,fontSize:"12px",fontWeight:"700",width:"100%"}}>
+                {myReaction?REACTIONS.find(r=>r.key===myReaction)?.emoji:"😊"} React
+              </button>
+              {showReactionPicker&&<div style={{position:"absolute",bottom:"110%",left:0,background:C.bgCard,border:`1px solid ${C.border}`,borderRadius:"16px",padding:"8px 12px",display:"flex",gap:"8px",zIndex:50,boxShadow:"0 8px 24px rgba(0,0,0,0.4)"}}>
+                {REACTIONS.map(r=>{
+                  const active=myReactions.some(i=>i.user_id===currentUserId&&i.reaction_key===r.key);
+                  return<button key={r.key} onClick={e=>{e.stopPropagation();onReact&&onReact(video.id,r.key);setShowReactionPicker(false);}} style={{background:active?`${C.teal}22`:"none",border:`1px solid ${active?C.teal:C.border}`,borderRadius:"12px",padding:"6px 10px",cursor:"pointer",color:C.white,fontSize:"16px"}}>{r.emoji}</button>;
+                })}
+              </div>}
+            </div>
+            <button onClick={e=>{e.stopPropagation();onOpenComments&&onOpenComments(video);}} style={{background:"none",border:`1px solid ${C.border}`,color:C.muted,borderRadius:"10px",padding:"5px 10px",cursor:"pointer",fontFamily:T.head,fontSize:"12px",fontWeight:"700"}}>💬 {commentCount}</button>
+            {onShare&&<button onClick={e=>{e.stopPropagation();onShare(video);}} style={{background:"none",border:`1px solid ${C.border}`,color:C.muted,borderRadius:"10px",padding:"5px 10px",cursor:"pointer",fontFamily:T.head,fontSize:"11px",fontWeight:"700"}}>↗</button>}
+          </div>
+        </>}
       </div>
     </div>
+  );
+}
+function VideoCommentsModal({video,interactions,users,currentUserId,onAddComment,onClose}){
+  const[text,setText]=useState("");
+  const comments=(interactions||[]).filter(i=>i.video_id===video.id&&i.type==="comment").sort((a,b)=>new Date(a.created_at)-new Date(b.created_at));
+  return(
+    <Modal title={`💬 ${video.title}`} onClose={onClose}>
+      <div style={{display:"flex",flexDirection:"column",gap:"10px",maxHeight:"340px",overflowY:"auto",marginBottom:"14px"}}>
+        {comments.length===0&&<div style={{color:C.mutedDim,fontFamily:T.body,fontSize:"13px",fontStyle:"italic",textAlign:"center",padding:"20px 0"}}>No comments yet — be the first!</div>}
+        {comments.map((c,i)=>{const cu=users?.find(u=>u.id===c.user_id);return(
+          <div key={i} style={{display:"flex",gap:"10px"}}>
+            <Avatar user={cu} size={28}/>
+            <div style={{background:C.bgDeep,borderRadius:"14px",padding:"8px 12px",flex:1}}>
+              <div style={{color:C.teal,fontSize:"11px",fontFamily:T.head,fontWeight:"700",marginBottom:"2px"}}>{cu?.name}</div>
+              <div style={{color:C.sandDim,fontSize:"13px",fontFamily:T.body}}>{c.comment_text}</div>
+            </div>
+          </div>
+        );})}
+      </div>
+      <div style={{display:"flex",gap:"8px"}}>
+        <input placeholder="Add a comment..." value={text} onChange={e=>setText(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"&&text.trim()){onAddComment(video.id,text);setText("");}}} style={{...inp(),flex:1,borderRadius:"24px",padding:"10px 16px"}}/>
+        <button onClick={()=>{if(text.trim()){onAddComment(video.id,text);setText("");}}} style={{background:G.teal,border:"none",color:C.bgDeep,borderRadius:"50%",width:"40px",height:"40px",cursor:"pointer",fontSize:"16px",flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center"}}>→</button>
+      </div>
+    </Modal>
   );
 }
 function VideoPlayer({video,onClose}){
@@ -510,10 +574,50 @@ function JamsTV({videos,currentUserId,onSubmitVideo,onShareVideo,users,onApprove
   const[showSubmit,setShowSubmit]=useState(false);
   const[adminTab,setAdminTab]=useState("pending");
   const[form,setForm]=useState({url:"",bandId:"phish",title:"",date:""});
+  const[interactions,setInteractions]=useState([]);
+  const[commentVideo,setCommentVideo]=useState(null);
   const isAdmin=currentUserId===ADMIN_ID;
   const approved=videos.filter(v=>v.approved);
   const pending=videos.filter(v=>!v.approved);
   const filtered=filter==="all"?approved:approved.filter(v=>v.bandId===filter);
+
+  useEffect(()=>{
+    supabase.from("video_interactions").select("*").then(({data})=>setInteractions(data||[]));
+  },[]);
+
+  const handlePlay=async v=>{
+    setPlaying(v);
+    // log view (once per user per video)
+    const alreadyViewed=interactions.some(i=>i.video_id===v.id&&i.type==="view"&&i.user_id===currentUserId);
+    if(!alreadyViewed){
+      const{data}=await supabase.from("video_interactions").insert({video_id:v.id,user_id:currentUserId,type:"view"}).select().single();
+      if(data)setInteractions(prev=>[...prev,data]);
+    }
+  };
+
+  const handleReact=async(videoId,reactionKey)=>{
+    const existing=interactions.find(i=>i.video_id===videoId&&i.type==="reaction"&&i.user_id===currentUserId);
+    if(existing){
+      if(existing.reaction_key===reactionKey){
+        // toggle off
+        await supabase.from("video_interactions").delete().eq("id",existing.id);
+        setInteractions(prev=>prev.filter(i=>i.id!==existing.id));
+      } else {
+        // switch reaction
+        await supabase.from("video_interactions").update({reaction_key:reactionKey}).eq("id",existing.id);
+        setInteractions(prev=>prev.map(i=>i.id===existing.id?{...i,reaction_key:reactionKey}:i));
+      }
+    } else {
+      const{data}=await supabase.from("video_interactions").insert({video_id:videoId,user_id:currentUserId,type:"reaction",reaction_key:reactionKey}).select().single();
+      if(data)setInteractions(prev=>[...prev,data]);
+    }
+  };
+
+  const handleAddComment=async(videoId,text)=>{
+    const{data}=await supabase.from("video_interactions").insert({video_id:videoId,user_id:currentUserId,type:"comment",comment_text:text}).select().single();
+    if(data)setInteractions(prev=>[...prev,data]);
+  };
+
   return(
     <div style={{maxWidth:"900px",margin:"0 auto",padding:"24px 20px"}}>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",flexWrap:"wrap",gap:"12px",marginBottom:"20px"}}>
@@ -524,14 +628,13 @@ function JamsTV({videos,currentUserId,onSubmitVideo,onShareVideo,users,onApprove
         </div>
       </div>
 
-      {/* Admin panel — only visible to BoogMagoo */}
       {isAdmin&&adminTab&&(
         <div style={{background:C.bgCard,border:`1px solid ${C.gold}44`,borderRadius:"20px",padding:"20px",marginBottom:"24px"}}>
           <div style={{color:C.gold,fontFamily:T.head,fontSize:"10px",letterSpacing:"2px",fontWeight:"700",marginBottom:"14px"}}>⚙ ADMIN — VIDEO REVIEW</div>
           {pending.length===0
             ?<div style={{color:C.mutedDim,fontFamily:T.body,fontSize:"13px",fontStyle:"italic"}}>No videos pending review 〜 you're all caught up!</div>
             :<div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(240px,1fr))",gap:"14px"}}>
-              {pending.map(v=><VideoCard key={v.id} video={v} onPlay={setPlaying} users={users} onApprove={onApproveVideo} onReject={onRejectVideo}/>)}
+              {pending.map(v=><VideoCard key={v.id} video={v} onPlay={handlePlay} users={users} onApprove={onApproveVideo} onReject={onRejectVideo} interactions={interactions} currentUserId={currentUserId}/>)}
             </div>}
         </div>
       )}
@@ -542,8 +645,9 @@ function JamsTV({videos,currentUserId,onSubmitVideo,onShareVideo,users,onApprove
         <button onClick={()=>setFilter("collab")} style={filterPill(filter==="collab",C.gold)}>Collabs</button>
       </div>
       {filtered.length===0?<Empty>No videos here yet!</Empty>
-        :<div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(260px,1fr))",gap:"16px"}}>{filtered.map(v=><VideoCard key={v.id} video={v} onPlay={setPlaying} onShare={onShareVideo} users={users}/>)}</div>}
+        :<div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(260px,1fr))",gap:"16px"}}>{filtered.map(v=><VideoCard key={v.id} video={v} onPlay={handlePlay} onShare={onShareVideo} users={users} interactions={interactions} currentUserId={currentUserId} onReact={handleReact} onOpenComments={setCommentVideo}/>)}</div>}
       <VideoPlayer video={playing} onClose={()=>setPlaying(null)}/>
+      {commentVideo&&<VideoCommentsModal video={commentVideo} interactions={interactions} users={users} currentUserId={currentUserId} onAddComment={handleAddComment} onClose={()=>setCommentVideo(null)}/>}
       {showSubmit&&(
         <Modal title="Submit a Video" onClose={()=>setShowSubmit(false)}>
           <div style={{display:"flex",flexDirection:"column",gap:"14px"}}>
@@ -951,12 +1055,13 @@ function GoingToShowModal({band,onAdd,onClose}){
 }
 
 // ── GROUP PAGE ────────────────────────────────────────────────────────────────
-function GroupPage({band,posts,tales,videos,users,currentUserId,onBack,onAddPost,onAddTale,onDeleteTale,onGoingToShow,onShareVideo}){
+function GroupPage({band,posts,tales,videos,users,currentUserId,onBack,onAddPost,onAddTale,onDeleteTale,onGoingToShow,onShareVideo,videoInteractions,onVideoReact,onVideoComment}){
   const[groupTab,setGroupTab]=useState("shows");
   const[showTaleModal,setShowTaleModal]=useState(false);
   const[showGoingModal,setShowGoingModal]=useState(false);
   const[expandedTale,setExpandedTale]=useState(null);
   const[playing,setPlaying]=useState(null);
+  const[commentVideo,setCommentVideo]=useState(null);
   const bandShows=posts.filter(p=>p.band===band.id&&p.type==="show").sort((a,b)=>new Date(b.date)-new Date(a.date));
   const bandTales=tales.filter(t=>t.bandId===band.id);
   const bandVideos=videos.filter(v=>v.bandId===band.id&&v.approved);
@@ -1012,8 +1117,9 @@ function GroupPage({band,posts,tales,videos,users,currentUserId,onBack,onAddPost
       </div>
       {groupTab==="shows"&&(bandShows.length===0?<Empty>No shows logged yet. Be the first!</Empty>:<div style={{display:"flex",flexDirection:"column",gap:"10px"}}>{bandShows.map(p=>{const author=users.find(u=>u.id===p.userId);const goingUsers=(p.going||[]).map(id=>users.find(u=>u.id===id)).filter(Boolean);return(<div key={p.id} style={{background:C.bgCard,border:`1px solid ${C.border}`,borderLeft:`4px solid ${band.color}`,borderRadius:"16px",padding:"16px"}}><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"10px"}}><div style={{display:"flex",alignItems:"center",gap:"10px"}}><Avatar user={author} size={28}/><span style={{color:C.sandDim,fontFamily:T.head,fontSize:"12px",fontWeight:"700"}}>{author?.name}</span></div><span style={{color:C.mutedDim,fontFamily:T.mono,fontSize:"11px"}}>{p.date}</span></div><div style={{color:C.white,fontFamily:T.display,fontSize:"15px",fontWeight:"700",marginBottom:"4px"}}>{p.venue}</div><div style={{color:band.color,fontSize:"13px",letterSpacing:"2px"}}>{stars(p.rating)}</div>{p.notes&&<div style={{color:C.muted,fontStyle:"italic",fontFamily:T.body,fontSize:"12px",marginTop:"8px",lineHeight:"1.5"}}>"{p.notes.slice(0,120)}{p.notes.length>120?"…":""}"</div>}{goingUsers.length>0&&<div style={{display:"flex",gap:"4px",alignItems:"center",marginTop:"10px",flexWrap:"wrap"}}><span style={{color:C.mutedDim,fontFamily:T.head,fontSize:"10px",fontWeight:"700"}}>Going:</span>{goingUsers.map(u=><Avatar key={u.id} user={u} size={20}/>)}<span style={{color:C.mutedDim,fontFamily:T.body,fontSize:"11px"}}>{goingUsers.map(u=>u.name).join(", ")}</span></div>}</div>);})}</div>)}
       {groupTab==="tales"&&(bandTales.length===0?<Empty>No tales yet. Share a story from the lot!</Empty>:<div style={{display:"flex",flexDirection:"column",gap:"12px"}}>{bandTales.map(t=>{const author=users.find(u=>u.id===t.userId);const isExp=expandedTale===t.id;const isOwn=t.userId===currentUserId;return(<div key={t.id} style={{background:C.bgCard,border:`1px solid ${C.border}`,borderTop:`3px solid ${band.color}`,borderRadius:"16px",overflow:"hidden"}}><div style={{padding:"18px"}}><div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:"12px"}}><div style={{display:"flex",gap:"10px",alignItems:"center"}}><Avatar user={author} size={32}/><div><div style={{color:C.sandDim,fontFamily:T.head,fontSize:"12px",fontWeight:"700"}}>{author?.name}</div><div style={{color:C.mutedDim,fontFamily:T.mono,fontSize:"10px"}}>{t.date}</div></div></div>{isOwn&&<button onClick={()=>onDeleteTale(t.id)} style={{background:"none",border:"none",color:C.mutedDim,cursor:"pointer",fontSize:"18px"}}>×</button>}</div><div style={{color:C.white,fontFamily:T.display,fontSize:"18px",fontWeight:"700",marginBottom:"10px"}}>{t.title}</div>{t.taleImg&&<img src={t.taleImg} alt="" style={{width:"100%",borderRadius:"12px",marginBottom:"12px",maxHeight:"240px",objectFit:"cover"}}/>}<div style={{color:C.muted,fontFamily:T.body,fontSize:"14px",lineHeight:"1.8",whiteSpace:"pre-wrap"}}>{isExp?t.body:t.body.slice(0,220)+(t.body.length>220?"…":"")}</div>{t.body.length>220&&<button onClick={()=>setExpandedTale(isExp?null:t.id)} style={{background:"none",border:"none",color:band.color,fontFamily:T.head,fontSize:"12px",fontWeight:"700",cursor:"pointer",padding:"8px 0 0"}}>{isExp?"Read less ▲":"Read more ▼"}</button>}</div></div>);})}</div>)}
-      {groupTab==="videos"&&(bandVideos.length===0?<Empty>No videos for {band.name} yet.</Empty>:<div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(240px,1fr))",gap:"14px"}}>{bandVideos.map(v=><VideoCard key={v.id} video={v} onPlay={setPlaying} onShare={onShareVideo} users={users}/>)}</div>)}
+      {groupTab==="videos"&&(bandVideos.length===0?<Empty>No videos for {band.name} yet.</Empty>:<div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(240px,1fr))",gap:"14px"}}>{bandVideos.map(v=><VideoCard key={v.id} video={v} onPlay={setPlaying} onShare={onShareVideo} users={users} interactions={videoInteractions} currentUserId={currentUserId} onReact={onVideoReact} onOpenComments={setCommentVideo}/>)}</div>)}
       <VideoPlayer video={playing} onClose={()=>setPlaying(null)}/>
+      {commentVideo&&<VideoCommentsModal video={commentVideo} interactions={videoInteractions||[]} users={users} currentUserId={currentUserId} onAddComment={onVideoComment} onClose={()=>setCommentVideo(null)}/>}
       {showTaleModal&&<AddTaleModal bandId={band.id} onAdd={data=>{onAddTale({...data,userId:currentUserId,date:new Date().toISOString().slice(0,10),id:Date.now()});setShowTaleModal(false);}} onClose={()=>setShowTaleModal(false)}/>}
       {showGoingModal&&<GoingToShowModal band={band} onAdd={data=>{onGoingToShow({...data,band:band.id});setShowGoingModal(false);}} onClose={()=>setShowGoingModal(false)}/>}
     </div>
@@ -1027,6 +1133,7 @@ export default function LotLink(){
   const[posts,setPosts]=useState([]);
   const[tales,setTales]=useState([]);
   const[videos,setVideos]=useState([]);
+  const[videoInteractions,setVideoInteractions]=useState([]);
   const[messages,setMessages]=useState([]);
   const[notifications,setNotifications]=useState([]);
   const[loading,setLoading]=useState(true);
@@ -1047,6 +1154,8 @@ export default function LotLink(){
     async function load(){
       setLoading(true);
       const[u,p,t,v]=await Promise.all([db.getUsers(),db.getPosts(),db.getTales(),db.getVideos()]);
+      const{data:vi}=await supabase.from("video_interactions").select("*");
+      setVideoInteractions(vi||[]);
       setUsers(u);setPosts(p);setTales(t);setVideos(v);setLoading(false);
     }
     load();
@@ -1158,6 +1267,25 @@ export default function LotLink(){
   };
   const handleDeleteTale=async id=>{setTales(prev=>prev.filter(t=>t.id!==id));await db.deleteTale(id);};
   const handleDeletePost=async id=>{setPosts(prev=>prev.filter(p=>p.id!==id));await db.deletePost(id);};
+  const handleVideoReact=async(videoId,reactionKey)=>{
+    const existing=videoInteractions.find(i=>i.video_id===videoId&&i.type==="reaction"&&i.user_id===currentUserId);
+    if(existing){
+      if(existing.reaction_key===reactionKey){
+        await supabase.from("video_interactions").delete().eq("id",existing.id);
+        setVideoInteractions(prev=>prev.filter(i=>i.id!==existing.id));
+      } else {
+        await supabase.from("video_interactions").update({reaction_key:reactionKey}).eq("id",existing.id);
+        setVideoInteractions(prev=>prev.map(i=>i.id===existing.id?{...i,reaction_key:reactionKey}:i));
+      }
+    } else {
+      const{data}=await supabase.from("video_interactions").insert({video_id:videoId,user_id:currentUserId,type:"reaction",reaction_key:reactionKey}).select().single();
+      if(data)setVideoInteractions(prev=>[...prev,data]);
+    }
+  };
+  const handleVideoComment=async(videoId,text)=>{
+    const{data}=await supabase.from("video_interactions").insert({video_id:videoId,user_id:currentUserId,type:"comment",comment_text:text}).select().single();
+    if(data)setVideoInteractions(prev=>[...prev,data]);
+  };
   const handleView=async postId=>{
     const post=posts.find(p=>p.id===postId);if(!post)return;
     const updated={...post,views:(post.views||0)+1};
@@ -1226,7 +1354,7 @@ export default function LotLink(){
 
   if(showDMs)return wrap(<DMScreen currentUserId={currentUserId} users={users} messages={messages} onSend={handleSendDM} onBack={()=>setShowDMs(false)} onMarkRead={handleMarkDMRead}/>);
   if(viewProfile)return wrap(<ProfilePage user={viewProfile} {...profileProps} onBack={()=>setViewProfile(null)} onSendDM={()=>{setViewProfile(null);setShowDMs(true);}}/>);
-  if(viewGroup)return wrap(<><GroupPage band={viewGroup} posts={posts} tales={tales} videos={videos} users={users} currentUserId={currentUserId} onBack={()=>setViewGroup(null)} onAddPost={()=>{setDefaultBand(viewGroup.id);setShowAddPost(true);}} onAddTale={addTale} onDeleteTale={handleDeleteTale} onGoingToShow={handleGoingToShow} onShareVideo={v=>setShareVideoTarget(v)}/>{showAddPost&&<AddShowModal onAdd={addPost} onClose={()=>setShowAddPost(false)} defaultBand={defaultBand}/>}</>);
+  if(viewGroup)return wrap(<><GroupPage band={viewGroup} posts={posts} tales={tales} videos={videos} users={users} currentUserId={currentUserId} onBack={()=>setViewGroup(null)} onAddPost={()=>{setDefaultBand(viewGroup.id);setShowAddPost(true);}} onAddTale={addTale} onDeleteTale={handleDeleteTale} onGoingToShow={handleGoingToShow} onShareVideo={v=>setShareVideoTarget(v)} videoInteractions={videoInteractions} onVideoReact={handleVideoReact} onVideoComment={handleVideoComment}/>{showAddPost&&<AddShowModal onAdd={addPost} onClose={()=>setShowAddPost(false)} defaultBand={defaultBand}/>}</>);
 
   return wrap(
     <div style={{maxWidth:"720px",margin:"0 auto",padding:"24px 20px"}}>
