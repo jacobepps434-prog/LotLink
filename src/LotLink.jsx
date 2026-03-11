@@ -433,10 +433,14 @@ function DMScreen({currentUserId,users,messages,onSend,onBack,onMarkRead}){
 }
 
 // ── VIDEO COMPONENTS ──────────────────────────────────────────────────────────
-function VideoCard({video,onPlay,onShare}){
+const ADMIN_ID="u1773197045078";
+
+function VideoCard({video,onPlay,onShare,users,onApprove,onReject}){
   const band=BANDS.find(b=>b.id===video.bandId);
+  const submitter=users?.find(u=>u.id===video.submittedBy);
+  const isAdminView=!!onApprove;
   return(
-    <div style={{background:C.bgCard,border:`1px solid ${C.border}`,borderRadius:"16px",overflow:"hidden",transition:"transform 0.2s,box-shadow 0.2s",boxShadow:"0 4px 20px rgba(0,0,0,0.3)"}}
+    <div style={{background:C.bgCard,border:`1px solid ${isAdminView?C.gold:C.border}`,borderRadius:"16px",overflow:"hidden",transition:"transform 0.2s,box-shadow 0.2s",boxShadow:"0 4px 20px rgba(0,0,0,0.3)"}}
       onMouseEnter={e=>{e.currentTarget.style.transform="translateY(-3px)";e.currentTarget.style.boxShadow=`0 8px 30px ${band?.color||C.teal}33`;}}
       onMouseLeave={e=>{e.currentTarget.style.transform="";e.currentTarget.style.boxShadow="0 4px 20px rgba(0,0,0,0.3)";}}>
       <div style={{position:"relative",cursor:"pointer"}} onClick={()=>onPlay(video)}>
@@ -448,8 +452,14 @@ function VideoCard({video,onPlay,onShare}){
       </div>
       <div style={{padding:"12px 14px"}}>
         <div style={{color:C.white,fontFamily:T.head,fontWeight:"700",fontSize:"13px",lineHeight:"1.4",marginBottom:"4px"}}>{video.title}</div>
-        {video.date&&<div style={{color:C.muted,fontFamily:T.mono,fontSize:"11px",marginBottom:"8px"}}>{video.date}</div>}
-        {onShare&&<button onClick={()=>onShare(video)} style={{background:"none",border:`1px solid ${C.border}`,color:C.muted,borderRadius:"12px",padding:"5px 12px",cursor:"pointer",fontFamily:T.head,fontSize:"11px",fontWeight:"700",width:"100%"}}>↗ Share to Feed</button>}
+        {video.date&&<div style={{color:C.muted,fontFamily:T.mono,fontSize:"11px"}}>{video.date}</div>}
+        {submitter&&<div style={{color:C.mutedDim,fontFamily:T.body,fontSize:"11px",marginTop:"4px"}}>Submitted by <span style={{color:C.aqua,fontWeight:"600"}}>{submitter.name}</span></div>}
+        {isAdminView?(
+          <div style={{display:"flex",gap:"8px",marginTop:"10px"}}>
+            <button onClick={()=>onApprove(video)} style={{flex:1,background:`${C.green}22`,border:`1px solid ${C.green}66`,color:C.green,borderRadius:"10px",padding:"7px",cursor:"pointer",fontFamily:T.head,fontSize:"12px",fontWeight:"700"}}>✓ Approve</button>
+            <button onClick={()=>onReject(video)} style={{flex:1,background:`${C.error}15`,border:`1px solid ${C.error}44`,color:C.error,borderRadius:"10px",padding:"7px",cursor:"pointer",fontFamily:T.head,fontSize:"12px",fontWeight:"700"}}>✕ Reject</button>
+          </div>
+        ):onShare&&<button onClick={()=>onShare(video)} style={{background:"none",border:`1px solid ${C.border}`,color:C.muted,borderRadius:"12px",padding:"5px 12px",cursor:"pointer",fontFamily:T.head,fontSize:"11px",fontWeight:"700",width:"100%",marginTop:"8px"}}>↗ Share to Feed</button>}
       </div>
     </div>
   );
@@ -472,26 +482,45 @@ function VideoPlayer({video,onClose}){
 }
 
 // ── JAMS TV ───────────────────────────────────────────────────────────────────
-function JamsTV({videos,currentUserId,onSubmitVideo,onShareVideo}){
+function JamsTV({videos,currentUserId,onSubmitVideo,onShareVideo,users,onApproveVideo,onRejectVideo}){
   const[filter,setFilter]=useState("all");
   const[playing,setPlaying]=useState(null);
   const[showSubmit,setShowSubmit]=useState(false);
+  const[adminTab,setAdminTab]=useState("pending");
   const[form,setForm]=useState({url:"",bandId:"phish",title:"",date:""});
+  const isAdmin=currentUserId===ADMIN_ID;
   const approved=videos.filter(v=>v.approved);
+  const pending=videos.filter(v=>!v.approved);
   const filtered=filter==="all"?approved:approved.filter(v=>v.bandId===filter);
   return(
     <div style={{maxWidth:"900px",margin:"0 auto",padding:"24px 20px"}}>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",flexWrap:"wrap",gap:"12px",marginBottom:"20px"}}>
         <div><h1 style={{color:C.white,fontFamily:T.display,fontSize:"28px",fontWeight:"700",margin:"0 0 6px"}}>🎬 Jams TV</h1><p style={{color:C.muted,fontFamily:T.body,fontSize:"14px",margin:0}}>Curated highlights from the lot</p></div>
-        <Btn onClick={()=>setShowSubmit(true)} variant="secondary" small>+ Submit a Video</Btn>
+        <div style={{display:"flex",gap:"8px"}}>
+          {isAdmin&&<Btn onClick={()=>setAdminTab(t=>t?null:"pending")} variant="ghost" small style={{borderColor:C.gold+"66",color:C.gold}}>⚙ Admin {pending.length>0&&<span style={{background:C.gold,color:C.bgDeep,borderRadius:"10px",padding:"1px 6px",fontSize:"10px",marginLeft:"4px"}}>{pending.length}</span>}</Btn>}
+          <Btn onClick={()=>setShowSubmit(true)} variant="secondary" small>+ Submit a Video</Btn>
+        </div>
       </div>
+
+      {/* Admin panel — only visible to BoogMagoo */}
+      {isAdmin&&adminTab&&(
+        <div style={{background:C.bgCard,border:`1px solid ${C.gold}44`,borderRadius:"20px",padding:"20px",marginBottom:"24px"}}>
+          <div style={{color:C.gold,fontFamily:T.head,fontSize:"10px",letterSpacing:"2px",fontWeight:"700",marginBottom:"14px"}}>⚙ ADMIN — VIDEO REVIEW</div>
+          {pending.length===0
+            ?<div style={{color:C.mutedDim,fontFamily:T.body,fontSize:"13px",fontStyle:"italic"}}>No videos pending review 〜 you're all caught up!</div>
+            :<div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(240px,1fr))",gap:"14px"}}>
+              {pending.map(v=><VideoCard key={v.id} video={v} onPlay={setPlaying} users={users} onApprove={onApproveVideo} onReject={onRejectVideo}/>)}
+            </div>}
+        </div>
+      )}
+
       <div style={{display:"flex",gap:"8px",flexWrap:"wrap",marginBottom:"24px"}}>
         <button onClick={()=>setFilter("all")} style={filterPill(filter==="all",C.teal)}>All</button>
         {BANDS.map(b=><button key={b.id} onClick={()=>setFilter(b.id)} style={filterPill(filter===b.id,b.color)}>{b.name.split(" ")[0]}</button>)}
         <button onClick={()=>setFilter("collab")} style={filterPill(filter==="collab",C.gold)}>Collabs</button>
       </div>
       {filtered.length===0?<Empty>No videos here yet!</Empty>
-        :<div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(260px,1fr))",gap:"16px"}}>{filtered.map(v=><VideoCard key={v.id} video={v} onPlay={setPlaying} onShare={onShareVideo}/>)}</div>}
+        :<div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(260px,1fr))",gap:"16px"}}>{filtered.map(v=><VideoCard key={v.id} video={v} onPlay={setPlaying} onShare={onShareVideo} users={users}/>)}</div>}
       <VideoPlayer video={playing} onClose={()=>setPlaying(null)}/>
       {showSubmit&&(
         <Modal title="Submit a Video" onClose={()=>setShowSubmit(false)}>
@@ -895,7 +924,7 @@ function GroupPage({band,posts,tales,videos,users,currentUserId,onBack,onAddPost
       </div>
       {groupTab==="shows"&&(bandShows.length===0?<Empty>No shows logged yet. Be the first!</Empty>:<div style={{display:"flex",flexDirection:"column",gap:"10px"}}>{bandShows.map(p=>{const author=users.find(u=>u.id===p.userId);const goingUsers=(p.going||[]).map(id=>users.find(u=>u.id===id)).filter(Boolean);return(<div key={p.id} style={{background:C.bgCard,border:`1px solid ${C.border}`,borderLeft:`4px solid ${band.color}`,borderRadius:"16px",padding:"16px"}}><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"10px"}}><div style={{display:"flex",alignItems:"center",gap:"10px"}}><Avatar user={author} size={28}/><span style={{color:C.sandDim,fontFamily:T.head,fontSize:"12px",fontWeight:"700"}}>{author?.name}</span></div><span style={{color:C.mutedDim,fontFamily:T.mono,fontSize:"11px"}}>{p.date}</span></div><div style={{color:C.white,fontFamily:T.display,fontSize:"15px",fontWeight:"700",marginBottom:"4px"}}>{p.venue}</div><div style={{color:band.color,fontSize:"13px",letterSpacing:"2px"}}>{stars(p.rating)}</div>{p.notes&&<div style={{color:C.muted,fontStyle:"italic",fontFamily:T.body,fontSize:"12px",marginTop:"8px",lineHeight:"1.5"}}>"{p.notes.slice(0,120)}{p.notes.length>120?"…":""}"</div>}{goingUsers.length>0&&<div style={{display:"flex",gap:"4px",alignItems:"center",marginTop:"10px",flexWrap:"wrap"}}><span style={{color:C.mutedDim,fontFamily:T.head,fontSize:"10px",fontWeight:"700"}}>Going:</span>{goingUsers.map(u=><Avatar key={u.id} user={u} size={20}/>)}<span style={{color:C.mutedDim,fontFamily:T.body,fontSize:"11px"}}>{goingUsers.map(u=>u.name).join(", ")}</span></div>}</div>);})}</div>)}
       {groupTab==="tales"&&(bandTales.length===0?<Empty>No tales yet. Share a story from the lot!</Empty>:<div style={{display:"flex",flexDirection:"column",gap:"12px"}}>{bandTales.map(t=>{const author=users.find(u=>u.id===t.userId);const isExp=expandedTale===t.id;const isOwn=t.userId===currentUserId;return(<div key={t.id} style={{background:C.bgCard,border:`1px solid ${C.border}`,borderTop:`3px solid ${band.color}`,borderRadius:"16px",overflow:"hidden"}}><div style={{padding:"18px"}}><div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:"12px"}}><div style={{display:"flex",gap:"10px",alignItems:"center"}}><Avatar user={author} size={32}/><div><div style={{color:C.sandDim,fontFamily:T.head,fontSize:"12px",fontWeight:"700"}}>{author?.name}</div><div style={{color:C.mutedDim,fontFamily:T.mono,fontSize:"10px"}}>{t.date}</div></div></div>{isOwn&&<button onClick={()=>onDeleteTale(t.id)} style={{background:"none",border:"none",color:C.mutedDim,cursor:"pointer",fontSize:"18px"}}>×</button>}</div><div style={{color:C.white,fontFamily:T.display,fontSize:"18px",fontWeight:"700",marginBottom:"10px"}}>{t.title}</div>{t.taleImg&&<img src={t.taleImg} alt="" style={{width:"100%",borderRadius:"12px",marginBottom:"12px",maxHeight:"240px",objectFit:"cover"}}/>}<div style={{color:C.muted,fontFamily:T.body,fontSize:"14px",lineHeight:"1.8",whiteSpace:"pre-wrap"}}>{isExp?t.body:t.body.slice(0,220)+(t.body.length>220?"…":"")}</div>{t.body.length>220&&<button onClick={()=>setExpandedTale(isExp?null:t.id)} style={{background:"none",border:"none",color:band.color,fontFamily:T.head,fontSize:"12px",fontWeight:"700",cursor:"pointer",padding:"8px 0 0"}}>{isExp?"Read less ▲":"Read more ▼"}</button>}</div></div>);})}</div>)}
-      {groupTab==="videos"&&(bandVideos.length===0?<Empty>No videos for {band.name} yet.</Empty>:<div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(240px,1fr))",gap:"14px"}}>{bandVideos.map(v=><VideoCard key={v.id} video={v} onPlay={setPlaying} onShare={onShareVideo}/>)}</div>)}
+      {groupTab==="videos"&&(bandVideos.length===0?<Empty>No videos for {band.name} yet.</Empty>:<div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(240px,1fr))",gap:"14px"}}>{bandVideos.map(v=><VideoCard key={v.id} video={v} onPlay={setPlaying} onShare={onShareVideo} users={users}/>)}</div>)}
       <VideoPlayer video={playing} onClose={()=>setPlaying(null)}/>
       {showTaleModal&&<AddTaleModal bandId={band.id} onAdd={data=>{onAddTale({...data,userId:currentUserId,date:new Date().toISOString().slice(0,10),id:Date.now()});setShowTaleModal(false);}} onClose={()=>setShowTaleModal(false)}/>}
       {showGoingModal&&<GoingToShowModal band={band} onAdd={data=>{onGoingToShow({...data,band:band.id});setShowGoingModal(false);}} onClose={()=>setShowGoingModal(false)}/>}
@@ -1048,6 +1077,17 @@ export default function LotLink(){
     if(viewProfile?.id===userId)setViewProfile(prev=>({...prev,...patch}));
     await db.upsertUser(updated);
   };
+  const handleApproveVideo=async video=>{
+    const updated={...video,approved:true};
+    setVideos(prev=>prev.map(v=>v.id===video.id?updated:v));
+    await db.upsertVideo(updated);
+    if(video.submittedBy)await db.addNotification({toId:video.submittedBy,fromId:currentUserId,text:`✓ Your video "${video.title}" was approved and is now live on Jams TV!`});
+  };
+  const handleRejectVideo=async video=>{
+    setVideos(prev=>prev.filter(v=>v.id!==video.id));
+    await supabase.from("videos").delete().eq("id",video.id);
+    if(video.submittedBy)await db.addNotification({toId:video.submittedBy,fromId:currentUserId,text:`Your video "${video.title}" was not approved for Jams TV.`});
+  };
   const handleSubmitVideo=async v=>{await db.upsertVideo(v);setVideos(prev=>[...prev,v]);};
   const handleSendDM=async(toId,text)=>{
     const msg={id:Date.now(),fromId:currentUserId,toId,text,read:false};
@@ -1124,7 +1164,7 @@ export default function LotLink(){
           })}
         </div>
       </>)}
-      {tab==="jams"&&<JamsTV videos={videos} currentUserId={currentUserId} onSubmitVideo={handleSubmitVideo} onShareVideo={v=>setShareVideoTarget(v)}/>}
+      {tab==="jams"&&<JamsTV videos={videos} currentUserId={currentUserId} onSubmitVideo={handleSubmitVideo} onShareVideo={v=>setShareVideoTarget(v)} users={users} onApproveVideo={handleApproveVideo} onRejectVideo={handleRejectVideo}/>}
       {tab==="crew"&&(<>
         <div style={{color:C.muted,fontFamily:T.head,fontSize:"11px",letterSpacing:"3px",fontWeight:"700",marginBottom:"16px"}}>YOUR LOT CREW ({friends.length})</div>
         {friends.length===0?<Empty>No friends yet. Add them from the feed.</Empty>
