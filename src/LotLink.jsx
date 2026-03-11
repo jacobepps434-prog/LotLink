@@ -793,6 +793,28 @@ function ProfilePage({user,posts,wallPosts,users,currentUserId,onUpdate,onBack,o
   );
 }
 
+function ShareVideoModal({video,onShare,onClose}){
+  const[caption,setCaption]=useState("");
+  return(
+    <Modal title="Share to Feed" onClose={onClose}>
+      <div style={{display:"flex",flexDirection:"column",gap:"14px"}}>
+        <div style={{background:C.bgDeep,border:`1px solid ${C.border}`,borderRadius:"14px",overflow:"hidden"}}>
+          <img src={ytThumb(video.ytId)} alt="" style={{width:"100%",maxHeight:"160px",objectFit:"cover"}}/>
+          <div style={{padding:"10px 14px",display:"flex",alignItems:"center",gap:"10px"}}>
+            <span style={{color:C.teal,fontSize:"18px"}}>▶</span>
+            <div><div style={{color:C.white,fontFamily:T.head,fontSize:"13px",fontWeight:"700"}}>{video.title}</div><BandTag bandId={video.bandId} small/></div>
+          </div>
+        </div>
+        <div>
+          <Label>Say something (optional)</Label>
+          <textarea placeholder="What do you think of this one? 🎸" value={caption} onChange={e=>setCaption(e.target.value)} style={{...inp(),height:"80px",resize:"vertical"}}/>
+        </div>
+        <Btn onClick={()=>{onShare(video,caption);onClose();}}>Share to Feed →</Btn>
+      </div>
+    </Modal>
+  );
+}
+
 function GoingToShowModal({band,onAdd,onClose}){
   const[form,setForm]=useState({date:"",venue:"",notes:""});
   const set=(k,v)=>setForm(f=>({...f,[k]:v}));
@@ -900,6 +922,7 @@ export default function LotLink(){
   const[showDMs,setShowDMs]=useState(false);
   const[showSearch,setShowSearch]=useState(false);
   const[searchPlayingVideo,setSearchPlayingVideo]=useState(null);
+  const[shareVideoTarget,setShareVideoTarget]=useState(null);
   const[isMobile,setIsMobile]=useState(window.innerWidth<768);
   useEffect(()=>{const h=()=>setIsMobile(window.innerWidth<768);window.addEventListener("resize",h);return()=>window.removeEventListener("resize",h);},[]);
 
@@ -1012,8 +1035,8 @@ export default function LotLink(){
       await db.upsertPost(p);setPosts(prev=>[p,...prev]);
     }
   };
-  const handleShareVideo=async video=>{
-    const p={id:Date.now(),userId:currentUserId,type:"wall",profileId:currentUserId,text:`🎸 Sharing this one with the lot — ${video.title}`,wallImg:null,sharedVideoId:video.id,sharedVideo:video,date:new Date().toISOString().slice(0,10),likedBy:[],comments:[],reactions:{}};
+  const handleShareVideo=async(video,caption)=>{
+    const p={id:Date.now(),userId:currentUserId,type:"wall",profileId:currentUserId,text:caption||"",wallImg:null,sharedVideoId:video.id,sharedVideo:video,date:new Date().toISOString().slice(0,10),likedBy:[],comments:[],reactions:{}};
     await db.upsertPost(p);setPosts(prev=>[p,...prev]);
   };
   const handleDeleteTale=async id=>{setTales(prev=>prev.filter(t=>t.id!==id));await db.deleteTale(id);};
@@ -1063,12 +1086,13 @@ export default function LotLink(){
       {showNotifs&&<NotifPanel notifications={notifications} users={users} onClose={()=>setShowNotifs(false)} onMarkRead={handleMarkNotifsRead} onAcceptFriend={handleAcceptFriend} onDeclineFriend={handleDeclineFriend}/>}
       {showSearch&&<SearchOverlay users={users} posts={posts} videos={videos} onClose={()=>setShowSearch(false)} onViewProfile={u=>{setViewProfile(u);navSetTab("feed");}} onViewGroup={b=>{setViewGroup(b);}} onPlayVideo={v=>setSearchPlayingVideo(v)}/>}
       <VideoPlayer video={searchPlayingVideo} onClose={()=>setSearchPlayingVideo(null)}/>
+      {shareVideoTarget&&<ShareVideoModal video={shareVideoTarget} onShare={handleShareVideo} onClose={()=>setShareVideoTarget(null)}/>}
     </div>
   );
 
   if(showDMs)return wrap(<DMScreen currentUserId={currentUserId} users={users} messages={messages} onSend={handleSendDM} onBack={()=>setShowDMs(false)} onMarkRead={handleMarkDMRead}/>);
   if(viewProfile)return wrap(<ProfilePage user={viewProfile} {...profileProps} onBack={()=>setViewProfile(null)} onSendDM={()=>{setViewProfile(null);setShowDMs(true);}}/>);
-  if(viewGroup)return wrap(<><GroupPage band={viewGroup} posts={posts} tales={tales} videos={videos} users={users} currentUserId={currentUserId} onBack={()=>setViewGroup(null)} onAddPost={()=>{setDefaultBand(viewGroup.id);setShowAddPost(true);}} onAddTale={addTale} onDeleteTale={handleDeleteTale} onGoingToShow={handleGoingToShow} onShareVideo={handleShareVideo}/>{showAddPost&&<AddShowModal onAdd={addPost} onClose={()=>setShowAddPost(false)} defaultBand={defaultBand}/>}</>);
+  if(viewGroup)return wrap(<><GroupPage band={viewGroup} posts={posts} tales={tales} videos={videos} users={users} currentUserId={currentUserId} onBack={()=>setViewGroup(null)} onAddPost={()=>{setDefaultBand(viewGroup.id);setShowAddPost(true);}} onAddTale={addTale} onDeleteTale={handleDeleteTale} onGoingToShow={handleGoingToShow} onShareVideo={v=>setShareVideoTarget(v)}/>{showAddPost&&<AddShowModal onAdd={addPost} onClose={()=>setShowAddPost(false)} defaultBand={defaultBand}/>}</>);
 
   return wrap(
     <div style={{maxWidth:"720px",margin:"0 auto",padding:"24px 20px"}}>
@@ -1100,7 +1124,7 @@ export default function LotLink(){
           })}
         </div>
       </>)}
-      {tab==="jams"&&<JamsTV videos={videos} currentUserId={currentUserId} onSubmitVideo={handleSubmitVideo} onShareVideo={handleShareVideo}/>}
+      {tab==="jams"&&<JamsTV videos={videos} currentUserId={currentUserId} onSubmitVideo={handleSubmitVideo} onShareVideo={v=>setShareVideoTarget(v)}/>}
       {tab==="crew"&&(<>
         <div style={{color:C.muted,fontFamily:T.head,fontSize:"11px",letterSpacing:"3px",fontWeight:"700",marginBottom:"16px"}}>YOUR LOT CREW ({friends.length})</div>
         {friends.length===0?<Empty>No friends yet. Add them from the feed.</Empty>
