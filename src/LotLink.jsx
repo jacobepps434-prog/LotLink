@@ -1276,7 +1276,7 @@ export default function LotLink(){
     }
   };
   const handleShareVideo=async(video,caption)=>{
-    const p={id:Date.now(),userId:currentUserId,type:"wall",profileId:currentUserId,text:caption||"",wallImg:null,sharedVideoId:video.id,date:new Date().toISOString().slice(0,10),likedBy:[],comments:[],reactions:{}};
+    const p={id:Date.now(),userId:currentUserId,type:"wall",profileId:currentUserId,text:caption||"",wallImg:null,sharedVideo:video,sharedVideoId:video.id,date:new Date().toISOString().slice(0,10),likedBy:[],comments:[],reactions:{}};
     await db.upsertPost(p);setPosts(prev=>[p,...prev]);
   };
   const handleDeleteTale=async id=>{setTales(prev=>prev.filter(t=>t.id!==id));await db.deleteTale(id);};
