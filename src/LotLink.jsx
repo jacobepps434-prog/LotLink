@@ -770,6 +770,7 @@ function ProfilePage({user,posts,wallPosts,videos,users,currentUserId,onUpdate,o
   const[form,setForm]=useState({bio:user.bio||"",favBand:user.favBand||"phish",name:user.name||""});
   const[showWallModal,setShowWallModal]=useState(false);
   const[wallTab,setWallTab]=useState("all");
+  const[drillDown,setDrillDown]=useState(null);
   const fileRef=useRef();
   const isOwn=user.id===currentUserId;
   const currentUser=users.find(u=>u.id===currentUserId);
@@ -777,13 +778,46 @@ function ProfilePage({user,posts,wallPosts,videos,users,currentUserId,onUpdate,o
   const isPendingOut=(pendingOutgoing||[]).includes(user.id);
   const userShows=posts.filter(p=>p.userId===user.id&&p.type==="show").sort((a,b)=>new Date(b.date)-new Date(a.date));
   const userWall=wallPosts.filter(p=>p.profileId===user.id||p.userId===user.id).sort((a,b)=>new Date(b.date||b.created_at)-new Date(a.date||a.created_at));
-  // combined timeline: mix shows + wall posts sorted by date
   const allActivity=[...userShows.map(p=>({...p,_type:"show"})),...userWall.map(p=>({...p,_type:"wall"}))].sort((a,b)=>new Date(b.date||b.created_at)-new Date(a.date||a.created_at));
+  const friendsList=(user.friends||[]).map(id=>users.find(u=>u.id===id)).filter(Boolean);
   const favBand=BANDS.find(b=>b.id===user.favBand);
   const handleAvatarChange=e=>{const file=e.target.files[0];if(!file)return;const reader=new FileReader();reader.onload=ev=>onUpdate(user.id,{avatarImg:ev.target.result});reader.readAsDataURL(file);};
   return(
     <div style={{maxWidth:"680px",margin:"0 auto",padding:"20px"}}>
       <button onClick={onBack} style={{background:"none",border:"none",color:C.muted,cursor:"pointer",fontFamily:T.head,fontSize:"13px",fontWeight:"700",marginBottom:"18px",padding:0}}>← Back</button>
+
+      {drillDown&&(
+        <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.85)",zIndex:200,display:"flex",alignItems:"center",justifyContent:"center",padding:"20px",backdropFilter:"blur(6px)"}} onClick={e=>e.target===e.currentTarget&&setDrillDown(null)}>
+          <div style={{background:C.bgCard,border:`1px solid ${C.border}`,borderRadius:"24px",padding:"24px",width:"100%",maxWidth:"480px",maxHeight:"80vh",display:"flex",flexDirection:"column"}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"16px",flexShrink:0}}>
+              <div style={{color:C.white,fontFamily:T.display,fontSize:"18px",fontWeight:"700"}}>{drillDown==="shows"?`${user.name}'s Shows`:`${user.name}'s Friends`}</div>
+              <button onClick={()=>setDrillDown(null)} style={{background:"none",border:"none",color:C.muted,fontSize:"22px",cursor:"pointer",lineHeight:1}}>×</button>
+            </div>
+            <div style={{overflowY:"auto",display:"flex",flexDirection:"column",gap:"10px"}}>
+              {drillDown==="shows"&&(userShows.length===0?<Empty>No shows logged yet.</Empty>:userShows.map(p=>{
+                const band=BANDS.find(b=>b.id===p.band);
+                return(<div key={p.id} style={{background:C.bgDeep,border:`1px solid ${C.border}`,borderLeft:`4px solid ${band?.color||C.teal}`,borderRadius:"14px",padding:"14px 16px"}}>
+                  <div style={{display:"flex",justifyContent:"space-between",marginBottom:"6px"}}><BandTag bandId={p.band} small/><span style={{color:C.mutedDim,fontFamily:T.mono,fontSize:"11px"}}>{p.date}</span></div>
+                  <div style={{color:C.white,fontFamily:T.display,fontSize:"15px",fontWeight:"700",marginBottom:"3px"}}>{p.venue}</div>
+                  <div style={{color:band?.color||C.teal,fontSize:"13px",letterSpacing:"2px"}}>{stars(p.rating)}</div>
+                  {p.notes&&<div style={{color:C.muted,fontStyle:"italic",fontFamily:T.body,fontSize:"12px",marginTop:"6px",lineHeight:"1.5"}}>"{p.notes.slice(0,100)}{p.notes.length>100?"…":""}"</div>}
+                </div>);
+              }))}
+              {drillDown==="friends"&&(friendsList.length===0?<Empty>No friends yet.</Empty>:friendsList.map(u=>(
+                <div key={u.id} style={{background:C.bgDeep,border:`1px solid ${C.border}`,borderRadius:"14px",padding:"12px 16px",display:"flex",alignItems:"center",gap:"12px"}}>
+                  <Avatar user={u} size={40}/>
+                  <div style={{flex:1}}>
+                    <div style={{color:C.white,fontFamily:T.head,fontSize:"14px",fontWeight:"700"}}>{u.name}</div>
+                    <BandTag bandId={u.favBand} small/>
+                  </div>
+                  <span style={{color:C.mutedDim,fontFamily:T.body,fontSize:"12px"}}>{posts.filter(p=>p.userId===u.id&&p.type==="show").length} shows</span>
+                </div>
+              )))}
+            </div>
+          </div>
+        </div>
+      )}
+
       <div style={{background:C.bgCard,border:`1px solid ${C.border}`,borderRadius:"24px",overflow:"hidden",marginBottom:"16px",boxShadow:"0 8px 32px rgba(0,0,0,0.3)"}}>
         <div style={{height:"80px",background:favBand?`linear-gradient(135deg,${favBand.color}33,${favBand.accent||favBand.color}11)`:G.hero}}/>
         <div style={{padding:"0 24px 24px"}}>
@@ -798,7 +832,9 @@ function ProfilePage({user,posts,wallPosts,videos,users,currentUserId,onUpdate,o
                 :<div style={{color:C.white,fontFamily:T.display,fontSize:"22px",fontWeight:"700"}}>{user.name}</div>}
               <div style={{display:"flex",gap:"8px",alignItems:"center",marginTop:"6px",flexWrap:"wrap"}}>
                 <BandTag bandId={user.favBand} small/>
-                <span style={{color:C.mutedDim,fontFamily:T.body,fontSize:"12px"}}>{userShows.length} shows · {(user.friends||[]).length} friends</span>
+                <button onClick={()=>setDrillDown("shows")} style={{background:"none",border:"none",cursor:"pointer",color:C.teal,fontFamily:T.body,fontSize:"12px",fontWeight:"700",padding:0,textDecoration:"underline"}}>{userShows.length} shows</button>
+                <span style={{color:C.mutedDim,fontSize:"12px"}}>·</span>
+                <button onClick={()=>setDrillDown("friends")} style={{background:"none",border:"none",cursor:"pointer",color:C.teal,fontFamily:T.body,fontSize:"12px",fontWeight:"700",padding:0,textDecoration:"underline"}}>{friendsList.length} friends</button>
               </div>
             </div>
             <div style={{display:"flex",gap:"8px"}}>
