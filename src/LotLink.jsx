@@ -173,16 +173,16 @@ function StoriesBar({stories,users,currentUserId,onAddStory,onViewStory}){
     <div style={{background:C.bgCard,border:`1px solid ${C.border}`,borderRadius:"20px",padding:"14px 16px",marginBottom:"20px",overflowX:"auto"}}>
       <div style={{display:"flex",gap:"14px",alignItems:"flex-start",minWidth:"max-content"}}>
         {/* Add story bubble */}
-        <div onClick={onAddStory} style={{display:"flex",flexDirection:"column",alignItems:"center",gap:"6px",cursor:"pointer",minWidth:"56px"}}>
+        <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:"6px",minWidth:"56px"}}>
           <div style={{position:"relative"}}>
-            <div style={{width:52,height:52,borderRadius:"50%",border:`2px dashed ${C.teal}`,display:"flex",alignItems:"center",justifyContent:"center",background:myStory?`${C.teal}15`:C.bgDeep,boxShadow:myStory?`0 0 10px ${C.teal}44`:"none"}}>
+            <div onClick={myStory?()=>onViewStory(myStory,[myStory]):onAddStory} style={{width:52,height:52,borderRadius:"50%",border:`2px ${myStory?"solid":"dashed"} ${C.teal}`,display:"flex",alignItems:"center",justifyContent:"center",background:myStory?`${C.teal}15`:C.bgDeep,boxShadow:myStory?`0 0 10px ${C.teal}44`:"none",cursor:"pointer"}}>
               {myStory
                 ?<Avatar user={currentUser} size={44}/>
                 :<span style={{color:C.teal,fontSize:"22px",lineHeight:1,fontWeight:"300"}}>+</span>}
             </div>
-            {myStory&&<div style={{position:"absolute",bottom:-2,right:-2,background:G.teal,borderRadius:"50%",width:"18px",height:"18px",display:"flex",alignItems:"center",justifyContent:"center",fontSize:"11px",color:C.bgDeep,fontWeight:"700",border:`2px solid ${C.bgCard}`}}>+</div>}
+            {myStory&&<div onClick={e=>{e.stopPropagation();onAddStory();}} style={{position:"absolute",bottom:-2,right:-2,background:G.teal,borderRadius:"50%",width:"18px",height:"18px",display:"flex",alignItems:"center",justifyContent:"center",fontSize:"11px",color:C.bgDeep,fontWeight:"700",border:`2px solid ${C.bgCard}`,cursor:"pointer"}}>+</div>}
           </div>
-          <span style={{color:C.teal,fontFamily:T.head,fontSize:"10px",fontWeight:"700",textAlign:"center"}}>{myStory?"Your Story":"Add Story"}</span>
+          <span onClick={myStory?()=>onViewStory(myStory,[myStory]):onAddStory} style={{color:C.teal,fontFamily:T.head,fontSize:"10px",fontWeight:"700",textAlign:"center",cursor:"pointer"}}>{myStory?"Your Story":"Add Story"}</span>
         </div>
         {/* Other users' stories */}
         {storyUsers.filter(s=>s.userId!==currentUserId).map(story=>{
