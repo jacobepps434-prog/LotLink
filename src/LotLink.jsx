@@ -40,7 +40,11 @@ const db={
   },
   async getPosts(){
     const{data}=await supabase.from("posts").select("*").order("created_at",{ascending:false});
-    return(data||[]).map(p=>({...p,userId:p.user_id,profileId:p.profile_id,wallImg:p.wall_img,likedBy:p.liked_by||[],comments:p.comments||[],reactions:p.reactions||{},going:p.going||[],sharedVideo:p.shared_video||null,sharedVideoId:p.shared_video?.id||null,expiresAt:p.expires_at||null,imgData:p.wall_img||null,...(p.notes&&p.notes.startsWith("{")?JSON.parse(p.notes):{})}));
+    return(data||[]).map(p=>{
+      let meta={};
+      try{if(p.notes&&p.notes.startsWith("{"))meta=JSON.parse(p.notes);}catch(e){}
+      return{...p,userId:p.user_id,profileId:p.profile_id,wallImg:p.wall_img,likedBy:p.liked_by||[],comments:p.comments||[],reactions:p.reactions||{},going:p.going||[],sharedVideo:p.shared_video||null,sharedVideoId:p.shared_video?.id||null,expiresAt:p.expires_at||null,imgData:p.wall_img||null,storyType:meta.storyType||null,link:meta.link||"",linkTitle:meta.linkTitle||""};
+    });
   },
   async upsertPost(p){
     await supabase.from("posts").upsert({id:p.id,user_id:p.userId,type:p.type,band:p.band,date:p.date,venue:p.venue,setlist:p.setlist,notes:p.notes,rating:p.rating,profile_id:p.profileId,text:p.text,wall_img:p.wallImg,liked_by:p.likedBy||[],comments:p.comments||[],reactions:p.reactions||{},going:p.going||[],shared_video:p.sharedVideo||null,expires_at:p.expiresAt||null});
@@ -1517,9 +1521,10 @@ export default function LotLink(){
   const addTale=async tale=>{await db.upsertTale(tale);setTales(prev=>[tale,...prev]);};
 
   const handleAddStory=async data=>{
-    const p={id:Date.now(),userId:currentUserId,type:"story",text:data.text||"",imgData:data.imgData||null,link:data.link||"",linkTitle:data.linkTitle||"",expiresAt:data.expiresAt,date:new Date().toISOString().slice(0,10),likedBy:[],comments:[],reactions:{}};
-    // store as wall_img for imgData since it's base64, and text in notes
-    await supabase.from("posts").upsert({id:p.id,user_id:p.userId,type:"story",text:p.text,wall_img:p.imgData||null,notes:JSON.stringify({link:p.link,linkTitle:p.linkTitle,storyType:data.type}),expires_at:p.expiresAt,liked_by:[],comments:[],reactions:{}});
+    const id=Date.now();
+    const meta=JSON.stringify({storyType:data.type,link:data.link||"",linkTitle:data.linkTitle||""});
+    await supabase.from("posts").upsert({id,user_id:currentUserId,type:"story",text:data.text||"",wall_img:data.imgData||null,notes:meta,expires_at:data.expiresAt,liked_by:[],comments:[],reactions:{}});
+    const p={id,userId:currentUserId,type:"story",storyType:data.type,text:data.text||"",imgData:data.imgData||null,link:data.link||"",linkTitle:data.linkTitle||"",expiresAt:data.expiresAt,date:new Date().toISOString().slice(0,10),likedBy:[],comments:[],reactions:{}};
     setPosts(prev=>[p,...prev]);
   };
 
