@@ -27,23 +27,46 @@ const AVATAR_COLORS=["#1A8888","#2A7A5A","#885A2A","#5A7A2A","#7A2A8A","#2A5A8A"
 const stars=n=>"★".repeat(n)+"☆".repeat(5-n);
 const ytThumb=id=>`https://img.youtube.com/vi/${id}/mqdefault.jpg`;
 const T={display:"'Playfair Display',Georgia,serif",head:"'Raleway','Trebuchet MS',sans-serif",body:"'Inter','Segoe UI',sans-serif",mono:"'JetBrains Mono','Courier New',monospace"};
+const ADMIN_ID="u1773197045078";
 
 // ── SUPABASE HELPERS ──────────────────────────────────────────────────────────
 const db={
-  async getUsers(){const{data}=await supabase.from("users").select("*");return(data||[]).map(u=>({...u,favBand:u.fav_band,avatarColor:u.avatar_color,avatarImg:u.avatar_img,friends:u.friends||[],password:u.password||""}));},
-  async upsertUser(u){await supabase.from("users").upsert({id:u.id,name:u.name,email:u.email||"",phone:u.phone||"",bio:u.bio||"",fav_band:u.favBand||"phish",avatar_color:u.avatarColor||"",avatar_img:u.avatarImg||"",friends:u.friends||[],password:u.password||""});},
-  async getPosts(){const{data}=await supabase.from("posts").select("*").order("created_at",{ascending:false});return(data||[]).map(p=>({...p,userId:p.user_id,profileId:p.profile_id,wallImg:p.wall_img,likedBy:p.liked_by||[],comments:p.comments||[],reactions:p.reactions||{},going:p.going||[],sharedVideo:p.shared_video||null,sharedVideoId:p.shared_video?.id||null}));},
-  async upsertPost(p){await supabase.from("posts").upsert({id:p.id,user_id:p.userId,type:p.type,band:p.band,date:p.date,venue:p.venue,setlist:p.setlist,notes:p.notes,rating:p.rating,profile_id:p.profileId,text:p.text,wall_img:p.wallImg,liked_by:p.likedBy||[],comments:p.comments||[],reactions:p.reactions||{},going:p.going||[],shared_video:p.sharedVideo||null});},
+  async getUsers(){
+    const{data}=await supabase.from("users").select("*");
+    return(data||[]).map(u=>({...u,favBand:u.fav_band,avatarColor:u.avatar_color,avatarImg:u.avatar_img,friends:u.friends||[],password:u.password||"",status:u.status||""}));
+  },
+  async upsertUser(u){
+    await supabase.from("users").upsert({id:u.id,name:u.name,email:u.email||"",phone:u.phone||"",bio:u.bio||"",fav_band:u.favBand||"phish",avatar_color:u.avatarColor||"",avatar_img:u.avatarImg||"",friends:u.friends||[],password:u.password||"",status:u.status||""});
+  },
+  async getPosts(){
+    const{data}=await supabase.from("posts").select("*").order("created_at",{ascending:false});
+    return(data||[]).map(p=>({...p,userId:p.user_id,profileId:p.profile_id,wallImg:p.wall_img,likedBy:p.liked_by||[],comments:p.comments||[],reactions:p.reactions||{},going:p.going||[],sharedVideo:p.shared_video||null,sharedVideoId:p.shared_video?.id||null}));
+  },
+  async upsertPost(p){
+    await supabase.from("posts").upsert({id:p.id,user_id:p.userId,type:p.type,band:p.band,date:p.date,venue:p.venue,setlist:p.setlist,notes:p.notes,rating:p.rating,profile_id:p.profileId,text:p.text,wall_img:p.wallImg,liked_by:p.likedBy||[],comments:p.comments||[],reactions:p.reactions||{},going:p.going||[],shared_video:p.sharedVideo||null,expires_at:p.expiresAt||null});
+  },
   async deletePost(id){await supabase.from("posts").delete().eq("id",id);},
-  async getTales(){const{data}=await supabase.from("tales").select("*").order("created_at",{ascending:false});return(data||[]).map(t=>({...t,userId:t.user_id,bandId:t.band_id,taleImg:t.tale_img}));},
+  async getTales(){
+    const{data}=await supabase.from("tales").select("*").order("created_at",{ascending:false});
+    return(data||[]).map(t=>({...t,userId:t.user_id,bandId:t.band_id,taleImg:t.tale_img}));
+  },
   async upsertTale(t){await supabase.from("tales").upsert({id:t.id,user_id:t.userId,band_id:t.bandId,title:t.title,body:t.body,tale_img:t.taleImg||null,date:t.date});},
   async deleteTale(id){await supabase.from("tales").delete().eq("id",id);},
-  async getVideos(){const{data}=await supabase.from("videos").select("*").order("created_at",{ascending:false});return(data||[]).map(v=>({...v,bandId:v.band_id,ytId:v.yt_id,submittedBy:v.submitted_by}));},
+  async getVideos(){
+    const{data}=await supabase.from("videos").select("*").order("created_at",{ascending:false});
+    return(data||[]).map(v=>({...v,bandId:v.band_id,ytId:v.yt_id,submittedBy:v.submitted_by}));
+  },
   async upsertVideo(v){await supabase.from("videos").upsert({id:v.id,band_id:v.bandId,title:v.title,date:v.date||"",url:v.url,yt_id:v.ytId,approved:v.approved||false,submitted_by:v.submittedBy||null});},
-  async getMessages(uid){const{data}=await supabase.from("messages").select("*").or(`from_id.eq.${uid},to_id.eq.${uid}`).order("created_at",{ascending:true});return(data||[]).map(m=>({...m,fromId:m.from_id,toId:m.to_id}));},
+  async getMessages(uid){
+    const{data}=await supabase.from("messages").select("*").or(`from_id.eq.${uid},to_id.eq.${uid}`).order("created_at",{ascending:true});
+    return(data||[]).map(m=>({...m,fromId:m.from_id,toId:m.to_id}));
+  },
   async sendMessage(m){await supabase.from("messages").insert({id:m.id,from_id:m.fromId,to_id:m.toId,text:m.text,read:false});},
   async markMessagesRead(fromId,toId){await supabase.from("messages").update({read:true}).eq("from_id",fromId).eq("to_id",toId);},
-  async getNotifications(uid){const{data}=await supabase.from("notifications").select("*").eq("to_id",uid).order("created_at",{ascending:false});return(data||[]).map(n=>({...n,toId:n.to_id,fromId:n.from_id,refId:n.ref_id,refType:n.ref_type}));},
+  async getNotifications(uid){
+    const{data}=await supabase.from("notifications").select("*").eq("to_id",uid).order("created_at",{ascending:false});
+    return(data||[]).map(n=>({...n,toId:n.to_id,fromId:n.from_id,refId:n.ref_id,refType:n.ref_type}));
+  },
   async addNotification(n){await supabase.from("notifications").insert({to_id:n.toId,from_id:n.fromId,text:n.text,read:false,ref_id:n.refId||null,ref_type:n.refType||null});},
   async markNotifsRead(uid){await supabase.from("notifications").update({read:true}).eq("to_id",uid);},
   async deleteUser(uid){
@@ -53,15 +76,19 @@ const db={
     await supabase.from("notifications").delete().or(`to_id.eq.${uid},from_id.eq.${uid}`);
     await supabase.from("users").delete().eq("id",uid);
   },
-  async sendFriendRequest(fromId,toId){const{error}=await supabase.from("notifications").insert({to_id:toId,from_id:fromId,text:"__FRIENDREQ__",read:false});if(error)console.error("Friend request failed:",error);return !error;},
+  async sendFriendRequest(fromId,toId){
+    const{error}=await supabase.from("notifications").insert({to_id:toId,from_id:fromId,text:"__FRIENDREQ__",read:false});
+    if(error)console.error("Friend request failed:",error);
+    return !error;
+  },
   async acceptFriendRequest(notifId,meId,fromId,allUsers){
     const me=allUsers.find(u=>u.id===meId);
     const other=allUsers.find(u=>u.id===fromId);
     const updMe={...me,friends:[...(me.friends||[]).filter(x=>x!==fromId),fromId]};
     const updOther={...other,friends:[...(other.friends||[]).filter(x=>x!==meId),meId]};
     await Promise.all([
-      supabase.from("users").upsert({id:meId,name:updMe.name,email:updMe.email||"",phone:updMe.phone||"",bio:updMe.bio||"",fav_band:updMe.favBand||"phish",avatar_color:updMe.avatarColor||"",avatar_img:updMe.avatarImg||"",friends:updMe.friends}),
-      supabase.from("users").upsert({id:fromId,name:updOther.name,email:updOther.email||"",phone:updOther.phone||"",bio:updOther.bio||"",fav_band:updOther.favBand||"phish",avatar_color:updOther.avatarColor||"",avatar_img:updOther.avatarImg||"",friends:updOther.friends}),
+      supabase.from("users").upsert({id:meId,name:updMe.name,email:updMe.email||"",phone:updMe.phone||"",bio:updMe.bio||"",fav_band:updMe.favBand||"phish",avatar_color:updMe.avatarColor||"",avatar_img:updMe.avatarImg||"",friends:updMe.friends,status:updMe.status||""}),
+      supabase.from("users").upsert({id:fromId,name:updOther.name,email:updOther.email||"",phone:updOther.phone||"",bio:updOther.bio||"",fav_band:updOther.favBand||"phish",avatar_color:updOther.avatarColor||"",avatar_img:updOther.avatarImg||"",friends:updOther.friends,status:updOther.status||""}),
       supabase.from("notifications").delete().eq("id",notifId),
       supabase.from("notifications").insert({to_id:fromId,from_id:meId,text:`__FRIENDACC__`,read:false}),
     ]);
@@ -71,11 +98,17 @@ const db={
 };
 
 // ── UI HELPERS ────────────────────────────────────────────────────────────────
-function Avatar({user,size=40,onClick}){
+function Avatar({user,size=40,onClick,showStatus}){
   const initials=user?.name?.slice(0,2).toUpperCase()||"??";
-  return(<div onClick={onClick} style={{width:size,height:size,borderRadius:"50%",background:user?.avatarColor?`linear-gradient(135deg,${user.avatarColor},${user.avatarColor}88)`:C.mutedDim,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:T.head,fontWeight:"800",fontSize:size*0.35,color:C.white,flexShrink:0,border:`2px solid ${C.border}`,overflow:"hidden",cursor:onClick?"pointer":"default"}}>
-    {user?.avatarImg?<img src={user.avatarImg} style={{width:"100%",height:"100%",objectFit:"cover"}} alt=""/>:initials}
-  </div>);
+  const hasStatus=showStatus&&user?.status;
+  return(
+    <div style={{position:"relative",flexShrink:0,display:"inline-flex"}}>
+      <div onClick={onClick} style={{width:size,height:size,borderRadius:"50%",background:user?.avatarColor?`linear-gradient(135deg,${user.avatarColor},${user.avatarColor}88)`:C.mutedDim,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:T.head,fontWeight:"800",fontSize:size*0.35,color:C.white,border:`2px solid ${hasStatus?C.teal:C.border}`,overflow:"hidden",cursor:onClick?"pointer":"default",boxShadow:hasStatus?`0 0 8px ${C.teal}55`:"none",transition:"box-shadow 0.2s"}}>
+        {user?.avatarImg?<img src={user.avatarImg} style={{width:"100%",height:"100%",objectFit:"cover"}} alt=""/>:initials}
+      </div>
+      {hasStatus&&<div style={{position:"absolute",bottom:-2,left:"50%",transform:"translateX(-50%)",background:C.teal,borderRadius:"10px",padding:"1px 5px",whiteSpace:"nowrap",fontSize:"9px",fontFamily:T.head,fontWeight:"700",color:C.bgDeep,maxWidth:"80px",overflow:"hidden",textOverflow:"ellipsis",border:`1px solid ${C.bgCard}`}}>{user.status.slice(0,14)}{user.status.length>14?"…":""}</div>}
+    </div>
+  );
 }
 function BandTag({bandId,small}){
   const band=BANDS.find(b=>b.id===bandId);if(!band)return null;
@@ -123,6 +156,183 @@ function Logo({size="normal"}){
 }
 function filterPill(active,color=C.teal){return{background:active?`${color}22`:"none",border:`1px solid ${active?color:C.borderLt}`,color:active?color:C.mutedDim,borderRadius:"24px",padding:"6px 14px",fontFamily:T.head,fontSize:"12px",fontWeight:"700",cursor:"pointer",transition:"all 0.2s"};}
 
+// ── STORIES ───────────────────────────────────────────────────────────────────
+function StoriesBar({stories,users,currentUserId,onAddStory,onViewStory}){
+  const now=Date.now();
+  const activeStories=stories.filter(s=>new Date(s.expiresAt).getTime()>now);
+  // group by userId, keep most recent per user
+  const byUser={};
+  activeStories.forEach(s=>{
+    if(!byUser[s.userId]||new Date(s.created_at)>new Date(byUser[s.userId].created_at))byUser[s.userId]=s;
+  });
+  const storyUsers=Object.values(byUser);
+  const currentUser=users.find(u=>u.id===currentUserId);
+  const myStory=byUser[currentUserId];
+
+  return(
+    <div style={{background:C.bgCard,border:`1px solid ${C.border}`,borderRadius:"20px",padding:"14px 16px",marginBottom:"20px",overflowX:"auto"}}>
+      <div style={{display:"flex",gap:"14px",alignItems:"flex-start",minWidth:"max-content"}}>
+        {/* Add story bubble */}
+        <div onClick={onAddStory} style={{display:"flex",flexDirection:"column",alignItems:"center",gap:"6px",cursor:"pointer",minWidth:"56px"}}>
+          <div style={{position:"relative"}}>
+            <div style={{width:52,height:52,borderRadius:"50%",border:`2px dashed ${C.teal}`,display:"flex",alignItems:"center",justifyContent:"center",background:myStory?`${C.teal}15`:C.bgDeep,boxShadow:myStory?`0 0 10px ${C.teal}44`:"none"}}>
+              {myStory
+                ?<Avatar user={currentUser} size={44}/>
+                :<span style={{color:C.teal,fontSize:"22px",lineHeight:1,fontWeight:"300"}}>+</span>}
+            </div>
+            {myStory&&<div style={{position:"absolute",bottom:-2,right:-2,background:G.teal,borderRadius:"50%",width:"18px",height:"18px",display:"flex",alignItems:"center",justifyContent:"center",fontSize:"11px",color:C.bgDeep,fontWeight:"700",border:`2px solid ${C.bgCard}`}}>+</div>}
+          </div>
+          <span style={{color:C.teal,fontFamily:T.head,fontSize:"10px",fontWeight:"700",textAlign:"center"}}>{myStory?"Your Story":"Add Story"}</span>
+        </div>
+        {/* Other users' stories */}
+        {storyUsers.filter(s=>s.userId!==currentUserId).map(story=>{
+          const author=users.find(u=>u.id===story.userId);
+          const timeLeft=Math.max(0,new Date(story.expiresAt).getTime()-now);
+          const hoursLeft=Math.floor(timeLeft/3600000);
+          const minsLeft=Math.floor((timeLeft%3600000)/60000);
+          const timeStr=hoursLeft>0?`${hoursLeft}h`:`${minsLeft}m`;
+          return(
+            <div key={story.userId} onClick={()=>onViewStory(story,storyUsers.filter(s=>s.userId!==currentUserId))} style={{display:"flex",flexDirection:"column",alignItems:"center",gap:"6px",cursor:"pointer",minWidth:"56px"}}>
+              <div style={{width:52,height:52,borderRadius:"50%",padding:"2px",background:G.teal,boxShadow:`0 0 12px ${C.teal}55`}}>
+                <Avatar user={author} size={48} showStatus/>
+              </div>
+              <span style={{color:C.sandDim,fontFamily:T.head,fontSize:"10px",fontWeight:"700",textAlign:"center",maxWidth:"56px",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{author?.name?.split(" ")[0]}</span>
+              <span style={{color:C.mutedDim,fontFamily:T.mono,fontSize:"9px",marginTop:"-4px"}}>{timeStr}</span>
+            </div>
+          );
+        })}
+        {storyUsers.filter(s=>s.userId!==currentUserId).length===0&&(
+          <div style={{display:"flex",alignItems:"center",color:C.mutedDim,fontFamily:T.body,fontSize:"13px",fontStyle:"italic",paddingTop:"14px"}}>No stories yet — be the first!</div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function AddStoryModal({onAdd,onClose,currentUser}){
+  const[tab,setTab]=useState("text");
+  const[text,setText]=useState("");
+  const[imgData,setImgData]=useState(null);
+  const[link,setLink]=useState("");
+  const[linkTitle,setLinkTitle]=useState("");
+  const fileRef=useRef();
+  const handleImg=e=>{const file=e.target.files[0];if(!file)return;const reader=new FileReader();reader.onload=ev=>setImgData(ev.target.result);reader.readAsDataURL(file);};
+  const canSubmit=(tab==="text"&&text.trim())||(tab==="photo"&&imgData)||(tab==="link"&&link.trim());
+  return(
+    <Modal title="📸 Add a Story" onClose={onClose}>
+      <div style={{display:"flex",gap:"8px",marginBottom:"18px"}}>
+        {[["text","✏️ Text"],["photo","📷 Photo"],["link","🔗 Link"]].map(([t,label])=>(
+          <button key={t} onClick={()=>setTab(t)} style={{flex:1,padding:"8px",background:tab===t?`${C.teal}22`:"none",border:`1px solid ${tab===t?C.teal:C.borderLt}`,color:tab===t?C.teal:C.mutedDim,borderRadius:"12px",fontFamily:T.head,fontSize:"12px",fontWeight:"700",cursor:"pointer"}}>{label}</button>
+        ))}
+      </div>
+      {tab==="text"&&(
+        <div>
+          <Label>What's happening?</Label>
+          <textarea placeholder="Share a vibe, a moment, a thought 〜" value={text} onChange={e=>setText(e.target.value)} maxLength={200} style={{...inp(),height:"100px",resize:"vertical"}}/>
+          <div style={{color:C.mutedDim,fontFamily:T.mono,fontSize:"11px",textAlign:"right",marginTop:"4px"}}>{text.length}/200</div>
+        </div>
+      )}
+      {tab==="photo"&&(
+        <div>
+          {imgData
+            ?<div style={{position:"relative"}}><img src={imgData} alt="" style={{width:"100%",borderRadius:"12px",maxHeight:"220px",objectFit:"cover"}}/><button onClick={()=>setImgData(null)} style={{position:"absolute",top:"8px",right:"8px",background:"rgba(0,0,0,0.7)",border:"none",color:C.white,borderRadius:"8px",padding:"4px 10px",cursor:"pointer",fontFamily:T.head,fontSize:"12px"}}>Remove</button></div>
+            :<button onClick={()=>fileRef.current?.click()} style={{background:C.bgDeep,border:`2px dashed ${C.border}`,color:C.muted,borderRadius:"12px",padding:"32px",width:"100%",cursor:"pointer",fontFamily:T.head,fontSize:"13px",fontWeight:"700"}}>📷 Choose a photo</button>}
+          <input ref={fileRef} type="file" accept="image/*" style={{display:"none"}} onChange={handleImg}/>
+          {imgData&&<textarea placeholder="Add a caption (optional)" value={text} onChange={e=>setText(e.target.value)} maxLength={120} style={{...inp(),height:"60px",resize:"vertical",marginTop:"10px"}}/>}
+        </div>
+      )}
+      {tab==="link"&&(
+        <div style={{display:"flex",flexDirection:"column",gap:"10px"}}>
+          <div><Label>URL</Label><input placeholder="https://..." value={link} onChange={e=>setLink(e.target.value)} style={inp()}/></div>
+          <div><Label>Title (optional)</Label><input placeholder="What is this link?" value={linkTitle} onChange={e=>setLinkTitle(e.target.value)} style={inp()}/></div>
+          <div><Label>Caption (optional)</Label><textarea placeholder="Say something about it..." value={text} onChange={e=>setText(e.target.value)} maxLength={120} style={{...inp(),height:"60px",resize:"vertical"}}/></div>
+        </div>
+      )}
+      <div style={{marginTop:"18px"}}>
+        <Btn onClick={()=>{
+          if(!canSubmit)return;
+          const expires=new Date(Date.now()+24*60*60*1000).toISOString();
+          onAdd({type:tab,text,imgData,link,linkTitle,expiresAt:expires});
+          onClose();
+        }} disabled={!canSubmit}>Post Story (24hr) →</Btn>
+      </div>
+      <p style={{color:C.mutedDim,fontFamily:T.body,fontSize:"11px",textAlign:"center",marginTop:"10px",marginBottom:0}}>Stories disappear after 24 hours 〜</p>
+    </Modal>
+  );
+}
+
+function StoryViewer({story,allStories,users,currentUserId,onClose,onNext,onPrev}){
+  const[progress,setProgress]=useState(0);
+  const timerRef=useRef();
+  const author=users.find(u=>u.id===story.userId);
+  const now=Date.now();
+  const timeLeft=Math.max(0,new Date(story.expiresAt).getTime()-now);
+  const hoursLeft=Math.floor(timeLeft/3600000);
+  const minsLeft=Math.floor((timeLeft%3600000)/60000);
+  const timeStr=hoursLeft>0?`${hoursLeft}h ${minsLeft}m left`:`${minsLeft}m left`;
+  const currentIdx=allStories.findIndex(s=>s.userId===story.userId);
+
+  useEffect(()=>{
+    setProgress(0);
+    timerRef.current=setInterval(()=>{
+      setProgress(p=>{
+        if(p>=100){clearInterval(timerRef.current);onNext&&onNext();return 100;}
+        return p+0.5;
+      });
+    },25);
+    return()=>clearInterval(timerRef.current);
+  },[story.userId]);
+
+  return(
+    <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.97)",zIndex:600,display:"flex",alignItems:"center",justifyContent:"center"}} onClick={onClose}>
+      <div style={{width:"100%",maxWidth:"420px",height:"100%",maxHeight:"700px",position:"relative",background:C.bgDeep,borderRadius:"20px",overflow:"hidden",display:"flex",flexDirection:"column"}} onClick={e=>e.stopPropagation()}>
+        {/* Progress bar */}
+        <div style={{display:"flex",gap:"3px",padding:"10px 10px 0",position:"absolute",top:0,left:0,right:0,zIndex:10}}>
+          {allStories.map((s,i)=>(
+            <div key={s.userId} style={{flex:1,height:"3px",borderRadius:"2px",background:C.mutedDim+"55",overflow:"hidden"}}>
+              <div style={{height:"100%",background:C.white,width:i<currentIdx?"100%":i===currentIdx?`${progress}%`:"0%",transition:i===currentIdx?"none":"none"}}/>
+            </div>
+          ))}
+        </div>
+        {/* Header */}
+        <div style={{padding:"24px 16px 12px",display:"flex",alignItems:"center",gap:"10px",position:"absolute",top:0,left:0,right:0,zIndex:10,background:"linear-gradient(to bottom,rgba(0,0,0,0.6),transparent)"}}>
+          <Avatar user={author} size={36} showStatus/>
+          <div style={{flex:1}}>
+            <div style={{color:C.white,fontFamily:T.head,fontSize:"13px",fontWeight:"700"}}>{author?.name}</div>
+            <div style={{color:"rgba(255,255,255,0.6)",fontFamily:T.mono,fontSize:"10px"}}>{timeStr}</div>
+          </div>
+          <button onClick={onClose} style={{background:"rgba(255,255,255,0.15)",border:"none",color:C.white,cursor:"pointer",fontSize:"18px",width:"32px",height:"32px",borderRadius:"50%",display:"flex",alignItems:"center",justifyContent:"center"}}>×</button>
+        </div>
+        {/* Content */}
+        <div style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"80px 20px 60px"}}>
+          {story.type==="photo"&&story.imgData&&(
+            <div style={{width:"100%"}}>
+              <img src={story.imgData} alt="" style={{width:"100%",borderRadius:"12px",maxHeight:"400px",objectFit:"cover"}}/>
+              {story.text&&<div style={{color:C.white,fontFamily:T.body,fontSize:"14px",textAlign:"center",marginTop:"14px",lineHeight:"1.6",background:"rgba(0,0,0,0.4)",borderRadius:"12px",padding:"10px 14px"}}>{story.text}</div>}
+            </div>
+          )}
+          {story.type==="text"&&(
+            <div style={{background:`linear-gradient(135deg,${C.bgCard},${C.bgDeep})`,border:`1px solid ${C.border}`,borderRadius:"20px",padding:"32px 24px",textAlign:"center",width:"100%"}}>
+              <div style={{color:C.white,fontFamily:T.display,fontSize:"20px",lineHeight:"1.6",fontWeight:"600"}}>{story.text}</div>
+            </div>
+          )}
+          {story.type==="link"&&(
+            <div style={{background:C.bgCard,border:`1px solid ${C.border}`,borderRadius:"20px",padding:"24px",width:"100%",textAlign:"center"}}>
+              <div style={{fontSize:"32px",marginBottom:"12px"}}>🔗</div>
+              {story.linkTitle&&<div style={{color:C.white,fontFamily:T.head,fontSize:"16px",fontWeight:"700",marginBottom:"8px"}}>{story.linkTitle}</div>}
+              {story.text&&<div style={{color:C.sandDim,fontFamily:T.body,fontSize:"13px",marginBottom:"14px"}}>{story.text}</div>}
+              <a href={story.link} target="_blank" rel="noopener noreferrer" style={{color:C.teal,fontFamily:T.head,fontSize:"12px",fontWeight:"700",wordBreak:"break-all"}}>{story.link}</a>
+            </div>
+          )}
+        </div>
+        {/* Nav arrows */}
+        {currentIdx>0&&<button onClick={e=>{e.stopPropagation();onPrev&&onPrev();}} style={{position:"absolute",left:"10px",top:"50%",transform:"translateY(-50%)",background:"rgba(255,255,255,0.15)",border:"none",color:C.white,cursor:"pointer",fontSize:"20px",width:"36px",height:"36px",borderRadius:"50%",display:"flex",alignItems:"center",justifyContent:"center",zIndex:10}}>‹</button>}
+        {currentIdx<allStories.length-1&&<button onClick={e=>{e.stopPropagation();onNext&&onNext();}} style={{position:"absolute",right:"10px",top:"50%",transform:"translateY(-50%)",background:"rgba(255,255,255,0.15)",border:"none",color:C.white,cursor:"pointer",fontSize:"20px",width:"36px",height:"36px",borderRadius:"50%",display:"flex",alignItems:"center",justifyContent:"center",zIndex:10}}>›</button>}
+      </div>
+    </div>
+  );
+}
+
 // ── AUTH ──────────────────────────────────────────────────────────────────────
 function AuthScreen({onAuth}){
   const[mode,setMode]=useState("login");
@@ -151,27 +361,18 @@ function AuthScreen({onAuth}){
   };
   return(
     <div style={{minHeight:"100vh",background:C.bg,display:"flex",alignItems:"center",justifyContent:"center",padding:"20px",backgroundImage:`radial-gradient(ellipse at 20% 20%,${C.teal}18 0%,transparent 50%),radial-gradient(ellipse at 80% 80%,${C.green}18 0%,transparent 50%)`}}>
-
-      {/* Welcome popup */}
       {showWelcome&&(
         <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.85)",zIndex:200,display:"flex",alignItems:"center",justifyContent:"center",padding:"20px",backdropFilter:"blur(6px)"}}>
           <div style={{background:C.bgCard,border:`1px solid ${C.teal}55`,borderRadius:"24px",padding:"32px",maxWidth:"460px",width:"100%",boxShadow:`0 24px 80px rgba(0,0,0,0.6),0 0 40px ${C.teal}22`,textAlign:"center"}}>
             <div style={{display:"flex",justifyContent:"center",marginBottom:"18px"}}><Logo size="big"/></div>
             <div style={{color:C.teal,fontFamily:T.head,fontSize:"10px",letterSpacing:"3px",fontWeight:"700",marginBottom:"14px"}}>WELCOME TO THE LOT</div>
-            <p style={{color:C.sandDim,fontFamily:T.body,fontSize:"14px",lineHeight:"1.8",margin:"0 0 20px"}}>
-              LotLink is a protocol web-based application still in production. This app was built by <span style={{color:C.teal,fontWeight:"600"}}>Jacob Epps (BoogMagoo)</span> as a safe and respectful social media platform strictly for the jam band scene.
-            </p>
-            <p style={{color:C.sandDim,fontFamily:T.body,fontSize:"14px",lineHeight:"1.8",margin:"0 0 16px"}}>
-              By default, my profile <span style={{color:C.teal,fontWeight:"600"}}>BoogMagoo</span> is your friend from the jump. Please DM me with any requests or concerns. Thank you for playing along — have some fun and make some connections! 🤙
-            </p>
-            <p style={{color:C.mutedDim,fontFamily:T.body,fontSize:"13px",lineHeight:"1.7",margin:"0 0 24px",background:C.bgDeep,borderRadius:"12px",padding:"12px 14px",border:`1px solid ${C.border}`}}>
-              📱 <span style={{color:C.sandDim}}>This app is only available as a web client at this time. Save the URL to your phone's home screen for easy, app-like access.</span>
-            </p>
+            <p style={{color:C.sandDim,fontFamily:T.body,fontSize:"14px",lineHeight:"1.8",margin:"0 0 20px"}}>LotLink is a protocol web-based application still in production. This app was built by <span style={{color:C.teal,fontWeight:"600"}}>Jacob Epps (BoogMagoo)</span> as a safe and respectful social media platform strictly for the jam band scene.</p>
+            <p style={{color:C.sandDim,fontFamily:T.body,fontSize:"14px",lineHeight:"1.8",margin:"0 0 16px"}}>By default, my profile <span style={{color:C.teal,fontWeight:"600"}}>BoogMagoo</span> is your friend from the jump. Please DM me with any requests or concerns. Thank you for playing along — have some fun and make some connections! 🤙</p>
+            <p style={{color:C.mutedDim,fontFamily:T.body,fontSize:"13px",lineHeight:"1.7",margin:"0 0 24px",background:C.bgDeep,borderRadius:"12px",padding:"12px 14px",border:`1px solid ${C.border}`}}>📱 <span style={{color:C.sandDim}}>This app is only available as a web client at this time. Save the URL to your phone's home screen for easy, app-like access.</span></p>
             <Btn onClick={()=>setShowWelcome(false)}>Let's Go →</Btn>
           </div>
         </div>
       )}
-
       <div style={{width:"100%",maxWidth:"420px"}}>
         <div style={{textAlign:"center",marginBottom:"36px"}}>
           <div style={{display:"flex",justifyContent:"center",marginBottom:"16px"}}><Logo size="big"/></div>
@@ -215,13 +416,11 @@ function SearchOverlay({users,posts,videos,onClose,onViewProfile,onViewGroup,onP
   useEffect(()=>{inputRef.current?.focus();},[]);
   const q=query.trim().toLowerCase();
   const showPosts=posts.filter(p=>p.type==="show");
-
   const userResults=q?users.filter(u=>u.name?.toLowerCase().includes(q)||u.bio?.toLowerCase().includes(q)):[];
   const videoResults=q?videos.filter(v=>v.approved&&(v.title?.toLowerCase().includes(q)||BANDS.find(b=>b.id===v.bandId)?.name.toLowerCase().includes(q))):[];
   const showResults=q?showPosts.filter(p=>p.venue?.toLowerCase().includes(q)||p.notes?.toLowerCase().includes(q)||p.setlist?.toLowerCase().includes(q)):[];
   const bandResults=q?BANDS.filter(b=>b.name.toLowerCase().includes(q)||b.desc.toLowerCase().includes(q)):[];
   const hasResults=userResults.length||videoResults.length||showResults.length||bandResults.length;
-
   return(
     <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.92)",zIndex:300,backdropFilter:"blur(8px)",display:"flex",flexDirection:"column",alignItems:"center",padding:"80px 20px 20px"}} onClick={e=>e.target===e.currentTarget&&onClose()}>
       <div style={{width:"100%",maxWidth:"620px"}}>
@@ -230,50 +429,45 @@ function SearchOverlay({users,posts,videos,onClose,onViewProfile,onViewGroup,onP
           <input ref={inputRef} value={query} onChange={e=>setQuery(e.target.value)} placeholder="Search users, videos, shows, bands..." style={{...inp(),paddingLeft:"48px",borderRadius:"32px",fontSize:"16px",border:`1px solid ${C.teal}66`,background:C.bgCard,padding:"16px 20px 16px 50px"}}/>
           <button onClick={onClose} style={{position:"absolute",right:"14px",top:"50%",transform:"translateY(-50%)",background:"none",border:"none",color:C.muted,fontSize:"22px",cursor:"pointer",lineHeight:1}}>×</button>
         </div>
-
         {!q&&<div style={{textAlign:"center",color:C.mutedDim,fontFamily:T.body,fontSize:"14px",marginTop:"40px"}}>Start typing to search the lot 〜</div>}
         {q&&!hasResults&&<div style={{textAlign:"center",color:C.mutedDim,fontFamily:T.body,fontSize:"14px",marginTop:"40px"}}>No results for "{query}"</div>}
-
         <div style={{display:"flex",flexDirection:"column",gap:"24px",overflowY:"auto",maxHeight:"calc(100vh - 200px)"}}>
-
           {bandResults.length>0&&<div>
             <div style={{color:C.teal,fontFamily:T.head,fontSize:"10px",letterSpacing:"2px",fontWeight:"700",marginBottom:"10px"}}>BANDS</div>
             <div style={{display:"flex",flexDirection:"column",gap:"8px"}}>
               {bandResults.map(band=>(
-                <div key={band.id} onClick={()=>{onViewGroup(band);onClose();}} style={{background:C.bgCard,border:`1px solid ${band.color}44`,borderRadius:"16px",padding:"14px 18px",cursor:"pointer",display:"flex",alignItems:"center",gap:"14px",transition:"transform 0.15s"}}
-                  onMouseEnter={e=>e.currentTarget.style.transform="translateX(4px)"}
-                  onMouseLeave={e=>e.currentTarget.style.transform=""}>
+                <div key={band.id} onClick={()=>{onViewGroup(band);onClose();}} style={{background:C.bgCard,border:`1px solid ${band.color}44`,borderRadius:"16px",padding:"14px 18px",cursor:"pointer",display:"flex",alignItems:"center",gap:"14px"}}
+                  onMouseEnter={e=>e.currentTarget.style.transform="translateX(4px)"} onMouseLeave={e=>e.currentTarget.style.transform=""}>
                   <div style={{width:"38px",height:"38px",borderRadius:"50%",background:`${band.color}22`,border:`2px solid ${band.color}55`,display:"flex",alignItems:"center",justifyContent:"center",color:band.color,fontSize:"18px",fontWeight:"800",flexShrink:0}}>{band.icon}</div>
                   <div><div style={{color:C.white,fontFamily:T.head,fontSize:"14px",fontWeight:"700"}}>{band.name}</div><div style={{color:C.muted,fontFamily:T.body,fontSize:"12px",fontStyle:"italic"}}>{band.desc}</div></div>
                 </div>
               ))}
             </div>
           </div>}
-
           {userResults.length>0&&<div>
             <div style={{color:C.aqua,fontFamily:T.head,fontSize:"10px",letterSpacing:"2px",fontWeight:"700",marginBottom:"10px"}}>USERS</div>
             <div style={{display:"flex",flexDirection:"column",gap:"8px"}}>
               {userResults.map(u=>(
-                <div key={u.id} onClick={()=>{onViewProfile(u);onClose();}} style={{background:C.bgCard,border:`1px solid ${C.border}`,borderRadius:"16px",padding:"12px 16px",cursor:"pointer",display:"flex",alignItems:"center",gap:"12px",transition:"transform 0.15s"}}
-                  onMouseEnter={e=>e.currentTarget.style.transform="translateX(4px)"}
-                  onMouseLeave={e=>e.currentTarget.style.transform=""}>
-                  <Avatar user={u} size={40}/>
+                <div key={u.id} onClick={()=>{onViewProfile(u);onClose();}} style={{background:C.bgCard,border:`1px solid ${C.border}`,borderRadius:"16px",padding:"12px 16px",cursor:"pointer",display:"flex",alignItems:"center",gap:"12px"}}
+                  onMouseEnter={e=>e.currentTarget.style.transform="translateX(4px)"} onMouseLeave={e=>e.currentTarget.style.transform=""}>
+                  <Avatar user={u} size={40} showStatus/>
                   <div style={{flex:1}}>
                     <div style={{color:C.white,fontFamily:T.head,fontSize:"14px",fontWeight:"700"}}>{u.name}</div>
-                    <div style={{display:"flex",gap:"8px",alignItems:"center",marginTop:"3px"}}><BandTag bandId={u.favBand} small/>{u.bio&&<span style={{color:C.muted,fontFamily:T.body,fontSize:"12px"}}>{u.bio.slice(0,60)}{u.bio.length>60?"…":""}</span>}</div>
+                    <div style={{display:"flex",gap:"8px",alignItems:"center",marginTop:"3px",flexWrap:"wrap"}}>
+                      <BandTag bandId={u.favBand} small/>
+                      {u.status&&<span style={{color:C.teal,fontFamily:T.head,fontSize:"11px",fontWeight:"700"}}>"{u.status}"</span>}
+                    </div>
                   </div>
                 </div>
               ))}
             </div>
           </div>}
-
           {videoResults.length>0&&<div>
             <div style={{color:C.gold,fontFamily:T.head,fontSize:"10px",letterSpacing:"2px",fontWeight:"700",marginBottom:"10px"}}>VIDEOS</div>
             <div style={{display:"flex",flexDirection:"column",gap:"8px"}}>
               {videoResults.map(v=>(
-                <div key={v.id} onClick={()=>{onPlayVideo(v);onClose();}} style={{background:C.bgCard,border:`1px solid ${C.border}`,borderRadius:"16px",padding:"10px 14px",cursor:"pointer",display:"flex",alignItems:"center",gap:"12px",transition:"transform 0.15s"}}
-                  onMouseEnter={e=>e.currentTarget.style.transform="translateX(4px)"}
-                  onMouseLeave={e=>e.currentTarget.style.transform=""}>
+                <div key={v.id} onClick={()=>{onPlayVideo(v);onClose();}} style={{background:C.bgCard,border:`1px solid ${C.border}`,borderRadius:"16px",padding:"10px 14px",cursor:"pointer",display:"flex",alignItems:"center",gap:"12px"}}
+                  onMouseEnter={e=>e.currentTarget.style.transform="translateX(4px)"} onMouseLeave={e=>e.currentTarget.style.transform=""}>
                   <img src={ytThumb(v.ytId)} alt="" style={{width:"72px",height:"44px",borderRadius:"8px",objectFit:"cover",flexShrink:0}}/>
                   <div style={{flex:1}}>
                     <div style={{color:C.white,fontFamily:T.head,fontSize:"13px",fontWeight:"700",lineHeight:"1.3"}}>{v.title}</div>
@@ -284,7 +478,6 @@ function SearchOverlay({users,posts,videos,onClose,onViewProfile,onViewGroup,onP
               ))}
             </div>
           </div>}
-
           {showResults.length>0&&<div>
             <div style={{color:C.coral,fontFamily:T.head,fontSize:"10px",letterSpacing:"2px",fontWeight:"700",marginBottom:"10px"}}>SHOWS</div>
             <div style={{display:"flex",flexDirection:"column",gap:"8px"}}>
@@ -307,7 +500,6 @@ function SearchOverlay({users,posts,videos,onClose,onViewProfile,onViewGroup,onP
               })}
             </div>
           </div>}
-
         </div>
       </div>
     </div>
@@ -343,7 +535,7 @@ function BottomNav({tab,setTab,unreadNotifs,unreadDMs,onOpenSearch}){
   return(
     <div style={{position:"fixed",bottom:0,left:0,right:0,background:C.bgGlass,backdropFilter:"blur(12px)",borderTop:`1px solid ${C.border}`,display:"flex",zIndex:100,padding:"8px 0 max(8px,env(safe-area-inset-bottom))"}}>
       {[["feed","⌂","Feed"],["groups","◎","Groups"],["jams","▶","Jams"],["crew","⚇","Crew"],["me","◉","Me"]].map(([id,icon,label])=>(
-        <button key={id} onClick={()=>setTab(id)} style={{flex:1,background:"none",border:"none",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:"3px",color:tab===id?C.teal:C.mutedDim,fontFamily:T.head,fontSize:"10px",fontWeight:"700",padding:"4px 0",position:"relative"}}>
+        <button key={id} onClick={()=>setTab(id)} style={{flex:1,background:"none",border:"none",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:"3px",color:tab===id?C.teal:C.mutedDim,fontFamily:T.head,fontSize:"10px",fontWeight:"700",padding:"4px 0"}}>
           <span style={{fontSize:"18px",lineHeight:1}}>{icon}</span>{label}
         </button>
       ))}
@@ -373,7 +565,7 @@ function NotifPanel({notifications,users,onClose,onMarkRead,onAcceptFriend,onDec
             const displayText=isFriendReq?`${from?.name||"Someone"} sent you a friend request`:isFriendAcc?`${from?.name||"Someone"} accepted your friend request`:n.text;
             return(
               <div key={i} onClick={()=>{if(isClickable){onNavigate(n);onClose();}}}
-                style={{padding:"14px 20px",borderBottom:`1px solid ${C.borderLt}`,background:n.read?"none":`${C.teal}08`,display:"flex",gap:"12px",alignItems:"flex-start",cursor:isClickable?"pointer":"default",transition:"background 0.15s"}}
+                style={{padding:"14px 20px",borderBottom:`1px solid ${C.borderLt}`,background:n.read?"none":`${C.teal}08`,display:"flex",gap:"12px",alignItems:"flex-start",cursor:isClickable?"pointer":"default"}}
                 onMouseEnter={e=>{if(isClickable)e.currentTarget.style.background=`${C.teal}12`;}}
                 onMouseLeave={e=>{e.currentTarget.style.background=n.read?"none":`${C.teal}08`;}}>
                 <Avatar user={from} size={36}/>
@@ -390,7 +582,8 @@ function NotifPanel({notifications,users,onClose,onMarkRead,onAcceptFriend,onDec
                 </div>
                 {!n.read&&!isFriendReq&&<div style={{width:"8px",height:"8px",borderRadius:"50%",background:C.teal,flexShrink:0,marginTop:"4px"}}/>}
               </div>
-            );})
+            );
+          })
         }
       </div>
     </div>
@@ -419,9 +612,10 @@ function DMScreen({currentUserId,users,messages,onSend,onBack,onMarkRead}){
           {friends.length===0?<div style={{padding:"32px",textAlign:"center",color:C.muted,fontSize:"13px",fontFamily:T.body}}>Add friends to start messaging</div>
             :friends.map(u=>{const last=lastMsg(u.id);const ur=unread(u.id);return(
               <div key={u.id} onClick={()=>{setSelectedUser(u);onMarkRead(u.id);}} style={{padding:"14px 20px",cursor:"pointer",background:selectedUser?.id===u.id?`${C.teal}12`:"none",borderBottom:`1px solid ${C.borderLt}`,display:"flex",gap:"12px",alignItems:"center"}}>
-                <Avatar user={u} size={42}/>
+                <Avatar user={u} size={42} showStatus/>
                 <div style={{flex:1,minWidth:0}}>
                   <div style={{color:C.white,fontFamily:T.head,fontWeight:"700",fontSize:"14px"}}>{u.name}</div>
+                  {u.status&&<div style={{color:C.teal,fontFamily:T.head,fontSize:"11px",fontWeight:"700",marginBottom:"2px"}}>"{u.status}"</div>}
                   {last&&<div style={{color:C.muted,fontFamily:T.body,fontSize:"12px",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{last.fromId===currentUserId?"You: ":""}{last.text}</div>}
                 </div>
                 {ur>0&&<div style={{background:G.teal,color:C.bgDeep,borderRadius:"50%",width:"20px",height:"20px",fontSize:"11px",fontWeight:"800",display:"flex",alignItems:"center",justifyContent:"center",fontFamily:T.head}}>{ur}</div>}
@@ -433,8 +627,11 @@ function DMScreen({currentUserId,users,messages,onSend,onBack,onMarkRead}){
         {selectedUser?(
           <>
             <div style={{padding:"16px 24px",borderBottom:`1px solid ${C.border}`,display:"flex",alignItems:"center",gap:"12px"}}>
-              <Avatar user={selectedUser} size={38}/>
-              <div style={{color:C.white,fontFamily:T.head,fontWeight:"700",fontSize:"16px"}}>{selectedUser.name}</div>
+              <Avatar user={selectedUser} size={38} showStatus/>
+              <div>
+                <div style={{color:C.white,fontFamily:T.head,fontWeight:"700",fontSize:"16px"}}>{selectedUser.name}</div>
+                {selectedUser.status&&<div style={{color:C.teal,fontFamily:T.head,fontSize:"12px",fontWeight:"700"}}>"{selectedUser.status}"</div>}
+              </div>
             </div>
             <div style={{flex:1,overflowY:"auto",padding:"20px 24px",display:"flex",flexDirection:"column",gap:"10px"}}>
               {convo.length===0&&<div style={{textAlign:"center",color:C.muted,fontFamily:T.body,fontSize:"14px",marginTop:"40px"}}>Start the conversation 〜</div>}
@@ -462,7 +659,7 @@ function DMScreen({currentUserId,users,messages,onSend,onBack,onMarkRead}){
 }
 
 // ── VIDEO COMPONENTS ──────────────────────────────────────────────────────────
-const ADMIN_ID="u1773197045078";
+const REACTIONS=[{emoji:"🔥",key:"fire"},{emoji:"🎸",key:"guitar"},{emoji:"🤙",key:"shaka"}];
 
 function VideoCard({video,onPlay,onShare,users,onApprove,onReject,interactions,currentUserId,onReact,onOpenComments}){
   const band=BANDS.find(b=>b.id===video.bandId);
@@ -497,7 +694,6 @@ function VideoCard({video,onPlay,onShare,users,onApprove,onReject,interactions,c
             <button onClick={()=>onReject(video)} style={{flex:1,background:`${C.error}15`,border:`1px solid ${C.error}44`,color:C.error,borderRadius:"10px",padding:"7px",cursor:"pointer",fontFamily:T.head,fontSize:"12px",fontWeight:"700"}}>✕ Reject</button>
           </div>
         ):<>
-          {/* Reaction detail pills */}
           {totalReactions>0&&<div style={{display:"flex",gap:"5px",flexWrap:"wrap",marginTop:"8px"}}>
             {REACTIONS.filter(r=>myReactions.filter(i=>i.reaction_key===r.key).length>0).map(r=>{
               const reactors=myReactions.filter(i=>i.reaction_key===r.key).map(i=>users?.find(u=>u.id===i.user_id)?.name).filter(Boolean);
@@ -587,44 +783,20 @@ function JamsTV({videos,currentUserId,onSubmitVideo,onShareVideo,users,onApprove
   const approved=videos.filter(v=>v.approved);
   const pending=videos.filter(v=>!v.approved);
   const filtered=filter==="all"?approved:approved.filter(v=>v.bandId===filter);
-
-  useEffect(()=>{
-    supabase.from("video_interactions").select("*").then(({data})=>setInteractions(data||[]));
-  },[]);
-
+  useEffect(()=>{supabase.from("video_interactions").select("*").then(({data})=>setInteractions(data||[]));},[]);
   const handlePlay=async v=>{
     setPlaying(v);
-    // log view (once per user per video)
     const alreadyViewed=interactions.some(i=>i.video_id===v.id&&i.type==="view"&&i.user_id===currentUserId);
-    if(!alreadyViewed){
-      const{data}=await supabase.from("video_interactions").insert({video_id:v.id,user_id:currentUserId,type:"view"}).select().single();
-      if(data)setInteractions(prev=>[...prev,data]);
-    }
+    if(!alreadyViewed){const{data}=await supabase.from("video_interactions").insert({video_id:v.id,user_id:currentUserId,type:"view"}).select().single();if(data)setInteractions(prev=>[...prev,data]);}
   };
-
   const handleReact=async(videoId,reactionKey)=>{
     const existing=interactions.find(i=>i.video_id===videoId&&i.type==="reaction"&&i.user_id===currentUserId);
     if(existing){
-      if(existing.reaction_key===reactionKey){
-        // toggle off
-        await supabase.from("video_interactions").delete().eq("id",existing.id);
-        setInteractions(prev=>prev.filter(i=>i.id!==existing.id));
-      } else {
-        // switch reaction
-        await supabase.from("video_interactions").update({reaction_key:reactionKey}).eq("id",existing.id);
-        setInteractions(prev=>prev.map(i=>i.id===existing.id?{...i,reaction_key:reactionKey}:i));
-      }
-    } else {
-      const{data}=await supabase.from("video_interactions").insert({video_id:videoId,user_id:currentUserId,type:"reaction",reaction_key:reactionKey}).select().single();
-      if(data)setInteractions(prev=>[...prev,data]);
-    }
+      if(existing.reaction_key===reactionKey){await supabase.from("video_interactions").delete().eq("id",existing.id);setInteractions(prev=>prev.filter(i=>i.id!==existing.id));}
+      else{await supabase.from("video_interactions").update({reaction_key:reactionKey}).eq("id",existing.id);setInteractions(prev=>prev.map(i=>i.id===existing.id?{...i,reaction_key:reactionKey}:i));}
+    }else{const{data}=await supabase.from("video_interactions").insert({video_id:videoId,user_id:currentUserId,type:"reaction",reaction_key:reactionKey}).select().single();if(data)setInteractions(prev=>[...prev,data]);}
   };
-
-  const handleAddComment=async(videoId,text)=>{
-    const{data}=await supabase.from("video_interactions").insert({video_id:videoId,user_id:currentUserId,type:"comment",comment_text:text}).select().single();
-    if(data)setInteractions(prev=>[...prev,data]);
-  };
-
+  const handleAddComment=async(videoId,text)=>{const{data}=await supabase.from("video_interactions").insert({video_id:videoId,user_id:currentUserId,type:"comment",comment_text:text}).select().single();if(data)setInteractions(prev=>[...prev,data]);};
   return(
     <div style={{maxWidth:"900px",margin:"0 auto",padding:"24px 20px"}}>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",flexWrap:"wrap",gap:"12px",marginBottom:"20px"}}>
@@ -634,18 +806,13 @@ function JamsTV({videos,currentUserId,onSubmitVideo,onShareVideo,users,onApprove
           <Btn onClick={()=>setShowSubmit(true)} variant="secondary" small>+ Submit a Video</Btn>
         </div>
       </div>
-
       {isAdmin&&adminTab&&(
         <div style={{background:C.bgCard,border:`1px solid ${C.gold}44`,borderRadius:"20px",padding:"20px",marginBottom:"24px"}}>
           <div style={{color:C.gold,fontFamily:T.head,fontSize:"10px",letterSpacing:"2px",fontWeight:"700",marginBottom:"14px"}}>⚙ ADMIN — VIDEO REVIEW</div>
-          {pending.length===0
-            ?<div style={{color:C.mutedDim,fontFamily:T.body,fontSize:"13px",fontStyle:"italic"}}>No videos pending review 〜 you're all caught up!</div>
-            :<div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(240px,1fr))",gap:"14px"}}>
-              {pending.map(v=><VideoCard key={v.id} video={v} onPlay={handlePlay} users={users} onApprove={onApproveVideo} onReject={onRejectVideo} interactions={interactions} currentUserId={currentUserId}/>)}
-            </div>}
+          {pending.length===0?<div style={{color:C.mutedDim,fontFamily:T.body,fontSize:"13px",fontStyle:"italic"}}>No videos pending review 〜</div>
+            :<div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(240px,1fr))",gap:"14px"}}>{pending.map(v=><VideoCard key={v.id} video={v} onPlay={handlePlay} users={users} onApprove={onApproveVideo} onReject={onRejectVideo} interactions={interactions} currentUserId={currentUserId}/>)}</div>}
         </div>
       )}
-
       <div style={{display:"flex",gap:"8px",flexWrap:"wrap",marginBottom:"24px"}}>
         <button onClick={()=>setFilter("all")} style={filterPill(filter==="all",C.teal)}>All</button>
         {BANDS.map(b=><button key={b.id} onClick={()=>setFilter(b.id)} style={filterPill(filter===b.id,b.color)}>{b.name.split(" ")[0]}</button>)}
@@ -686,7 +853,7 @@ function ShowCard({post,users,currentUserId,onLike,onAddFriend,onComment,onDelet
     <div style={{background:C.bgCard,border:`1px solid ${C.border}`,borderRadius:"20px",overflow:"hidden",boxShadow:"0 4px 24px rgba(0,0,0,0.25)"}}>
       <div style={{padding:"16px 18px 14px",display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
         <div style={{display:"flex",gap:"12px",alignItems:"center"}}>
-          <Avatar user={author} size={40} onClick={()=>onViewProfile&&author&&onViewProfile(author)}/>
+          <Avatar user={author} size={40} onClick={()=>onViewProfile&&author&&onViewProfile(author)} showStatus/>
           <div>
             <div style={{color:C.white,fontFamily:T.head,fontSize:"14px",fontWeight:"700",cursor:"pointer"}} onClick={()=>onViewProfile&&author&&onViewProfile(author)}>{author?.name||"Unknown"}</div>
             <div style={{color:C.mutedDim,fontSize:"12px",fontFamily:T.body}}>{post.date}</div>
@@ -743,7 +910,6 @@ function ShowCard({post,users,currentUserId,onLike,onAddFriend,onComment,onDelet
 }
 
 // ── WALL CARD ─────────────────────────────────────────────────────────────────
-const REACTIONS=[{emoji:"🔥",key:"fire"},{emoji:"🎸",key:"guitar"},{emoji:"🤙",key:"shaka"}];
 function WallCard({post,users,currentUserId,onLike,onReact,onComment,onDelete,onShareVideo,onViewProfile,onView,highlight}){
   const[expanded,setExpanded]=useState(false);
   const[commentText,setCommentText]=useState("");
@@ -757,17 +923,15 @@ function WallCard({post,users,currentUserId,onLike,onReact,onComment,onDelete,on
   const myReaction=Object.keys(reactions).find(k=>reactions[k]?.includes(currentUserId));
   const totalReactions=Object.values(reactions).reduce((s,arr)=>s+(arr?.length||0),0);
   const isSharedVideo=!!post.sharedVideo;
-
-  // track view once on mount
   useEffect(()=>{if(!viewed.current){viewed.current=true;onView&&onView(post.id);}},[]);
-
   return(
     <div id={`post-${post.id}`} style={{background:C.bgCard,border:`1px solid ${highlight?C.teal:C.border}`,borderRadius:"20px",overflow:"hidden",boxShadow:highlight?`0 0 0 2px ${C.teal},0 4px 20px rgba(0,0,0,0.2)`:"0 4px 20px rgba(0,0,0,0.2)",transition:"box-shadow 0.3s,border-color 0.3s"}}>
       <div style={{padding:"16px 18px 12px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
         <div style={{display:"flex",gap:"10px",alignItems:"center",cursor:"pointer"}} onClick={()=>onViewProfile&&onViewProfile(author)}>
-          <Avatar user={author} size={36}/>
+          <Avatar user={author} size={36} showStatus/>
           <div>
             <div style={{color:C.white,fontFamily:T.head,fontSize:"13px",fontWeight:"700"}}>{author?.name}</div>
+            {author?.status&&<div style={{color:C.teal,fontFamily:T.head,fontSize:"11px",fontWeight:"700"}}>"{author.status}"</div>}
             <div style={{color:C.mutedDim,fontSize:"11px",fontFamily:T.body}}>{post.date}</div>
           </div>
         </div>
@@ -787,8 +951,6 @@ function WallCard({post,users,currentUserId,onLike,onReact,onComment,onDelete,on
           </div>
         </div>}
       </div>
-
-      {/* Reaction summary bar — shows who reacted */}
       {totalReactions>0&&<div style={{padding:"0 18px 10px",display:"flex",gap:"6px",flexWrap:"wrap"}}>
         {REACTIONS.filter(r=>(reactions[r.key]?.length||0)>0).map(r=>{
           const reactors=reactions[r.key].map(id=>users.find(u=>u.id===id)?.name).filter(Boolean);
@@ -805,7 +967,6 @@ function WallCard({post,users,currentUserId,onLike,onReact,onComment,onDelete,on
           );
         })}
       </div>}
-
       <Divider/>
       <div style={{padding:"10px 18px",display:"flex",gap:"6px",alignItems:"center",flexWrap:"wrap",position:"relative"}}>
         <button onClick={()=>onLike(post.id)} style={{background:liked?`${C.gold}15`:"none",border:"none",cursor:"pointer",color:liked?C.gold:C.muted,fontFamily:T.head,fontSize:"13px",fontWeight:"700",padding:"4px 8px",borderRadius:"20px",display:"flex",alignItems:"center",gap:"4px"}}>{liked?"★":"☆"} {post.likedBy?.length||0}</button>
@@ -816,7 +977,7 @@ function WallCard({post,users,currentUserId,onLike,onReact,onComment,onDelete,on
           {showReactionPicker&&<div style={{position:"absolute",bottom:"110%",left:0,background:C.bgCard,border:`1px solid ${C.border}`,borderRadius:"16px",padding:"8px 12px",display:"flex",gap:"8px",zIndex:50,boxShadow:"0 8px 24px rgba(0,0,0,0.4)"}}>
             {REACTIONS.map(r=>{
               const active=reactions[r.key]?.includes(currentUserId);
-              return<button key={r.key} onClick={()=>{onReact(post.id,r.key);setShowReactionPicker(false);}} style={{background:active?`${C.teal}22`:"none",border:`1px solid ${active?C.teal:C.border}`,borderRadius:"12px",padding:"6px 10px",cursor:"pointer",color:C.white,fontSize:"16px",fontFamily:T.head,display:"flex",alignItems:"center",gap:"4px"}}>{r.emoji}</button>;
+              return<button key={r.key} onClick={()=>{onReact(post.id,r.key);setShowReactionPicker(false);}} style={{background:active?`${C.teal}22`:"none",border:`1px solid ${active?C.teal:C.border}`,borderRadius:"12px",padding:"6px 10px",cursor:"pointer",color:C.white,fontSize:"16px"}}>{r.emoji}</button>;
             })}
           </div>}
         </div>
@@ -908,7 +1069,7 @@ function AddTaleModal({onAdd,onClose,bandId}){
 // ── PROFILE PAGE ──────────────────────────────────────────────────────────────
 function ProfilePage({user,posts,wallPosts,users,currentUserId,onUpdate,onBack,onAddWallPost,onLikeWall,onCommentWall,onDeleteWall,onSendDM,onAddFriend,onDeleteAccount,pendingOutgoing,onViewProfile}){
   const[editing,setEditing]=useState(false);
-  const[form,setForm]=useState({bio:user.bio||"",favBand:user.favBand||"phish",name:user.name||""});
+  const[form,setForm]=useState({bio:user.bio||"",favBand:user.favBand||"phish",name:user.name||"",status:user.status||""});
   const[showWallModal,setShowWallModal]=useState(false);
   const[wallTab,setWallTab]=useState("all");
   const[drillDown,setDrillDown]=useState(null);
@@ -926,7 +1087,6 @@ function ProfilePage({user,posts,wallPosts,users,currentUserId,onUpdate,onBack,o
   return(
     <div style={{maxWidth:"680px",margin:"0 auto",padding:"20px"}}>
       <button onClick={onBack} style={{background:"none",border:"none",color:C.muted,cursor:"pointer",fontFamily:T.head,fontSize:"13px",fontWeight:"700",marginBottom:"18px",padding:0}}>← Back</button>
-
       {drillDown&&(
         <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.85)",zIndex:200,display:"flex",alignItems:"center",justifyContent:"center",padding:"20px",backdropFilter:"blur(6px)"}} onClick={e=>e.target===e.currentTarget&&setDrillDown(null)}>
           <div style={{background:C.bgCard,border:`1px solid ${C.border}`,borderRadius:"24px",padding:"24px",width:"100%",maxWidth:"480px",maxHeight:"80vh",display:"flex",flexDirection:"column"}}>
@@ -946,7 +1106,7 @@ function ProfilePage({user,posts,wallPosts,users,currentUserId,onUpdate,onBack,o
               }))}
               {drillDown==="friends"&&(friendsList.length===0?<Empty>No friends yet.</Empty>:friendsList.map(u=>(
                 <div key={u.id} style={{background:C.bgDeep,border:`1px solid ${C.border}`,borderRadius:"14px",padding:"12px 16px",display:"flex",alignItems:"center",gap:"12px"}}>
-                  <Avatar user={u} size={40}/>
+                  <Avatar user={u} size={40} showStatus/>
                   <div style={{flex:1}}>
                     <div style={{color:C.white,fontFamily:T.head,fontSize:"14px",fontWeight:"700"}}>{u.name}</div>
                     <BandTag bandId={u.favBand} small/>
@@ -958,13 +1118,12 @@ function ProfilePage({user,posts,wallPosts,users,currentUserId,onUpdate,onBack,o
           </div>
         </div>
       )}
-
       <div style={{background:C.bgCard,border:`1px solid ${C.border}`,borderRadius:"24px",overflow:"hidden",marginBottom:"16px",boxShadow:"0 8px 32px rgba(0,0,0,0.3)"}}>
         <div style={{height:"80px",background:favBand?`linear-gradient(135deg,${favBand.color}33,${favBand.accent||favBand.color}11)`:G.hero}}/>
         <div style={{padding:"0 24px 24px"}}>
           <div style={{display:"flex",gap:"16px",alignItems:"flex-end",marginTop:"-28px",marginBottom:"14px",flexWrap:"wrap"}}>
             <div style={{position:"relative",cursor:isOwn?"pointer":"default"}} onClick={()=>isOwn&&fileRef.current?.click()}>
-              <div style={{border:`3px solid ${C.bgCard}`,borderRadius:"50%"}}><Avatar user={user} size={72}/></div>
+              <div style={{border:`3px solid ${C.bgCard}`,borderRadius:"50%"}}><Avatar user={user} size={72} showStatus/></div>
               {isOwn&&<div style={{position:"absolute",bottom:2,right:2,background:G.teal,borderRadius:"50%",width:"22px",height:"22px",display:"flex",alignItems:"center",justifyContent:"center",fontSize:"13px",color:C.bgDeep,fontWeight:"700"}}>+</div>}
               <input ref={fileRef} type="file" accept="image/*" style={{display:"none"}} onChange={handleAvatarChange}/>
             </div>
@@ -980,24 +1139,36 @@ function ProfilePage({user,posts,wallPosts,users,currentUserId,onUpdate,onBack,o
             </div>
             <div style={{display:"flex",gap:"8px"}}>
               {isOwn?<>
-                <Btn onClick={()=>{if(editing)onUpdate(user.id,{bio:form.bio,favBand:form.favBand,name:form.name});setEditing(!editing);}} variant={editing?"primary":"ghost"} small>{editing?"Save":"Edit Profile"}</Btn>
+                <Btn onClick={()=>{if(editing)onUpdate(user.id,{bio:form.bio,favBand:form.favBand,name:form.name,status:form.status});setEditing(!editing);}} variant={editing?"primary":"ghost"} small>{editing?"Save":"Edit Profile"}</Btn>
                 {onDeleteAccount&&<Btn onClick={onDeleteAccount} variant="ghost" small style={{color:C.error,borderColor:C.error+"44"}}>Delete Account</Btn>}
-              </>
-                :<>
-                  {!isFriend&&!isPendingOut&&<Btn onClick={()=>onAddFriend&&onAddFriend(user.id)} small>+ Add Friend</Btn>}
-                  {!isFriend&&isPendingOut&&<span style={{color:C.mutedDim,fontFamily:T.head,fontSize:"11px",fontWeight:"700",padding:"7px 0"}}>⏳ Request Sent</span>}
-                  {isFriend&&<Btn onClick={()=>onSendDM&&onSendDM(user)} variant="secondary" small>💬 Message</Btn>}
-                </>}
+              </>:<>
+                {!isFriend&&!isPendingOut&&<Btn onClick={()=>onAddFriend&&onAddFriend(user.id)} small>+ Add Friend</Btn>}
+                {!isFriend&&isPendingOut&&<span style={{color:C.mutedDim,fontFamily:T.head,fontSize:"11px",fontWeight:"700",padding:"7px 0"}}>⏳ Request Sent</span>}
+                {isFriend&&<Btn onClick={()=>onSendDM&&onSendDM(user)} variant="secondary" small>💬 Message</Btn>}
+              </>}
             </div>
           </div>
           <Divider/>
           <div style={{marginTop:"14px"}}>
             {editing?(
               <div style={{display:"flex",flexDirection:"column",gap:"12px"}}>
+                <div>
+                  <Label>Status (short phrase)</Label>
+                  <input placeholder="e.g. Just got back from Red Rocks 🤙" value={form.status} onChange={e=>setForm(f=>({...f,status:e.target.value}))} style={inp()} maxLength={60}/>
+                  <div style={{color:C.mutedDim,fontFamily:T.mono,fontSize:"10px",textAlign:"right",marginTop:"3px"}}>{form.status.length}/60</div>
+                </div>
                 <textarea value={form.bio} onChange={e=>setForm(f=>({...f,bio:e.target.value}))} placeholder="Tell the lot about yourself..." style={{...inp(),height:"70px",resize:"vertical"}}/>
                 <div><Label>Favorite Band</Label><select value={form.favBand} onChange={e=>setForm(f=>({...f,favBand:e.target.value}))} style={inp()}>{BANDS.map(b=><option key={b.id} value={b.id}>{b.name}</option>)}</select></div>
               </div>
-            ):<p style={{color:C.muted,fontFamily:T.body,fontStyle:"italic",fontSize:"14px",margin:0,lineHeight:"1.7"}}>{user.bio||(isOwn?"Add a bio to tell the lot about yourself...":"No bio yet.")}</p>}
+            ):(
+              <>
+                {user.status&&<div style={{display:"inline-flex",alignItems:"center",gap:"6px",background:`${C.teal}15`,border:`1px solid ${C.teal}33`,borderRadius:"20px",padding:"5px 14px",marginBottom:"10px"}}>
+                  <span style={{fontSize:"13px"}}>💬</span>
+                  <span style={{color:C.teal,fontFamily:T.head,fontSize:"13px",fontWeight:"700"}}>{user.status}</span>
+                </div>}
+                <p style={{color:C.muted,fontFamily:T.body,fontStyle:"italic",fontSize:"14px",margin:0,lineHeight:"1.7"}}>{user.bio||(isOwn?"Add a bio to tell the lot about yourself...":"No bio yet.")}</p>
+              </>
+            )}
           </div>
         </div>
       </div>
@@ -1033,23 +1204,19 @@ function ShareVideoModal({video,onShare,onClose}){
             <div><div style={{color:C.white,fontFamily:T.head,fontSize:"13px",fontWeight:"700"}}>{video.title}</div><BandTag bandId={video.bandId} small/></div>
           </div>
         </div>
-        <div>
-          <Label>Say something (optional)</Label>
-          <textarea placeholder="What do you think of this one? 🎸" value={caption} onChange={e=>setCaption(e.target.value)} style={{...inp(),height:"80px",resize:"vertical"}}/>
-        </div>
+        <div><Label>Say something (optional)</Label><textarea placeholder="What do you think of this one? 🎸" value={caption} onChange={e=>setCaption(e.target.value)} style={{...inp(),height:"80px",resize:"vertical"}}/></div>
         <Btn onClick={()=>{onShare(video,caption);onClose();}}>Share to Feed →</Btn>
       </div>
     </Modal>
   );
 }
-
 function GoingToShowModal({band,onAdd,onClose}){
   const[form,setForm]=useState({date:"",venue:"",notes:""});
   const set=(k,v)=>setForm(f=>({...f,[k]:v}));
   return(
     <Modal title={`📅 I'm Going — ${band.name}`} onClose={onClose}>
       <div style={{display:"flex",flexDirection:"column",gap:"14px"}}>
-        <div style={{color:C.muted,fontFamily:T.body,fontSize:"13px",fontStyle:"italic"}}>Let the lot know you'll be there. This will appear on the show log.</div>
+        <div style={{color:C.muted,fontFamily:T.body,fontSize:"13px",fontStyle:"italic"}}>Let the lot know you'll be there.</div>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"12px"}}>
           <div><Label>Date</Label><input type="date" value={form.date} onChange={e=>set("date",e.target.value)} style={inp()}/></div>
           <div><Label>Venue</Label><input placeholder="e.g. Red Rocks" value={form.venue} onChange={e=>set("venue",e.target.value)} style={inp()}/></div>
@@ -1073,7 +1240,6 @@ function GroupPage({band,posts,tales,videos,users,currentUserId,onBack,onAddPost
   const bandTales=tales.filter(t=>t.bandId===band.id);
   const bandVideos=videos.filter(v=>v.bandId===band.id&&v.approved);
   const members=[...new Set(bandShows.map(p=>p.userId))].map(id=>users.find(u=>u.id===id)).filter(Boolean);
-  // "Who else saw this" — group shows by venue+date, find overlap
   const showGroups={};
   bandShows.forEach(p=>{const key=`${p.venue}||${p.date}`;if(!showGroups[key])showGroups[key]=[];showGroups[key].push(p);});
   const sharedShows=Object.values(showGroups).filter(g=>g.length>1);
@@ -1094,18 +1260,13 @@ function GroupPage({band,posts,tales,videos,users,currentUserId,onBack,onAddPost
           {members.length>0&&<div style={{display:"flex",justifyContent:"center",gap:"6px",flexWrap:"wrap"}}>{members.slice(0,8).map(u=><Avatar key={u.id} user={u} size={30}/>)}</div>}
         </div>
       </div>
-
-      {/* Who else saw this */}
       {sharedShows.length>0&&<div style={{background:C.bgCard,border:`1px solid ${band.color}33`,borderRadius:"18px",padding:"16px 18px",marginBottom:"14px"}}>
         <div style={{color:band.color,fontFamily:T.head,fontSize:"10px",letterSpacing:"2px",fontWeight:"700",marginBottom:"12px"}}>👥 WHO ELSE SAW THIS SHOW</div>
         <div style={{display:"flex",flexDirection:"column",gap:"10px"}}>
           {sharedShows.map((group,i)=>{
             const attendees=group.map(p=>users.find(u=>u.id===p.userId)).filter(Boolean);
             return(<div key={i} style={{display:"flex",alignItems:"center",gap:"12px",flexWrap:"wrap"}}>
-              <div style={{flex:1}}>
-                <div style={{color:C.white,fontFamily:T.head,fontSize:"13px",fontWeight:"700"}}>{group[0].venue}</div>
-                <div style={{color:C.mutedDim,fontFamily:T.mono,fontSize:"11px"}}>{group[0].date}</div>
-              </div>
+              <div style={{flex:1}}><div style={{color:C.white,fontFamily:T.head,fontSize:"13px",fontWeight:"700"}}>{group[0].venue}</div><div style={{color:C.mutedDim,fontFamily:T.mono,fontSize:"11px"}}>{group[0].date}</div></div>
               <div style={{display:"flex",gap:"4px",alignItems:"center"}}>
                 {attendees.map(u=><Avatar key={u.id} user={u} size={28}/>)}
                 <span style={{color:C.muted,fontFamily:T.head,fontSize:"11px",fontWeight:"700",marginLeft:"4px"}}>{attendees.map(u=>u.name).join(" & ")}</span>
@@ -1114,7 +1275,6 @@ function GroupPage({band,posts,tales,videos,users,currentUserId,onBack,onAddPost
           })}
         </div>
       </div>}
-
       <div style={{display:"flex",gap:"8px",marginBottom:"14px",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap"}}>
         <div style={{display:"flex",gap:"8px",flexWrap:"wrap"}}>{[["shows","Show Log"],["tales","Tales"],["videos","Videos"]].map(([id,label])=><button key={id} onClick={()=>setGroupTab(id)} style={filterPill(groupTab===id,band.color)}>{label}</button>)}</div>
         <div style={{display:"flex",gap:"8px"}}>
@@ -1158,6 +1318,8 @@ export default function LotLink(){
   const[searchPlayingVideo,setSearchPlayingVideo]=useState(null);
   const[shareVideoTarget,setShareVideoTarget]=useState(null);
   const[isMobile,setIsMobile]=useState(window.innerWidth<768);
+  const[viewingStory,setViewingStory]=useState(null);
+  const[showAddStory,setShowAddStory]=useState(false);
   useEffect(()=>{const h=()=>setIsMobile(window.innerWidth<768);window.addEventListener("resize",h);return()=>window.removeEventListener("resize",h);},[]);
 
   useEffect(()=>{
@@ -1175,7 +1337,7 @@ export default function LotLink(){
     if(!currentUserId)return;
     db.getMessages(currentUserId).then(setMessages);
     db.getNotifications(currentUserId).then(setNotifications);
-      supabase.from("notifications").select("to_id").eq("from_id",currentUserId).eq("text","__FRIENDREQ__").then(({data})=>{if(data)setSentRequests(data.map(r=>r.to_id));});
+    supabase.from("notifications").select("to_id").eq("from_id",currentUserId).eq("text","__FRIENDREQ__").then(({data})=>{if(data)setSentRequests(data.map(r=>r.to_id));});
   },[currentUserId]);
 
   useEffect(()=>{
@@ -1193,7 +1355,7 @@ export default function LotLink(){
     if(mode==="signup"){
       const id="u"+Date.now();
       const color=AVATAR_COLORS[Math.floor(Math.random()*AVATAR_COLORS.length)];
-      const newUser={id,name:form.name,email:form.tab==="email"?form.email:"",phone:form.tab==="phone"?form.phone:"",bio:form.bio||"",favBand:form.favBand,avatarColor:color,avatarImg:"",friends:[ADMIN_ID],password:form.password};
+      const newUser={id,name:form.name,email:form.tab==="email"?form.email:"",phone:form.tab==="phone"?form.phone:"",bio:form.bio||"",favBand:form.favBand,avatarColor:color,avatarImg:"",friends:[ADMIN_ID],password:form.password,status:""};
       await db.upsertUser(newUser);setUsers(prev=>[...prev,newUser]);
       localStorage.setItem("lotlink-uid",id);setCurrentUserId(id);return true;
     }else{
@@ -1208,9 +1370,20 @@ export default function LotLink(){
   if(loading)return<div style={{minHeight:"100vh",background:C.bg,display:"flex",alignItems:"center",justifyContent:"center"}}><Spinner/></div>;
   if(!currentUserId)return<AuthScreen onAuth={handleAuth}/>;
 
+  // stories are wall posts with type="story" and expiresAt set
+  const now=Date.now();
+  const stories=posts.filter(p=>p.type==="story"&&p.expiresAt&&new Date(p.expiresAt).getTime()>now);
+
   const addPost=async form=>{const p={id:Date.now(),userId:currentUserId,type:"show",band:form.band,date:form.date,venue:form.venue,setlist:form.setlist,notes:form.notes,rating:form.rating,likedBy:[],comments:[]};await db.upsertPost(p);setPosts(prev=>[p,...prev]);};
   const addWallPost=async data=>{const p={id:Date.now(),userId:currentUserId,type:"wall",profileId:data.profileId,text:data.text,wallImg:data.wallImg,date:new Date().toISOString().slice(0,10),likedBy:[],comments:[]};await db.upsertPost(p);setPosts(prev=>[p,...prev]);};
   const addTale=async tale=>{await db.upsertTale(tale);setTales(prev=>[tale,...prev]);};
+
+  const handleAddStory=async data=>{
+    const p={id:Date.now(),userId:currentUserId,type:"story",text:data.text||"",imgData:data.imgData||null,link:data.link||"",linkTitle:data.linkTitle||"",expiresAt:data.expiresAt,date:new Date().toISOString().slice(0,10),likedBy:[],comments:[],reactions:{}};
+    // store as wall_img for imgData since it's base64, and text in notes
+    await supabase.from("posts").upsert({id:p.id,user_id:p.userId,type:"story",text:p.text,wall_img:p.imgData||null,notes:JSON.stringify({link:p.link,linkTitle:p.linkTitle,storyType:data.type}),expires_at:p.expiresAt,liked_by:[],comments:[],reactions:{}});
+    setPosts(prev=>[p,...prev]);
+  };
 
   const handleLike=async postId=>{
     const post=posts.find(p=>p.id===postId);if(!post)return;
@@ -1222,8 +1395,7 @@ export default function LotLink(){
     if(!liked&&post.userId!==currentUserId)await db.addNotification({toId:post.userId,fromId:currentUserId,text:`${currentUser?.name} liked your post`,refId:String(post.id),refType:"post"});
   };
   const handleSendFriendRequest=async userId=>{
-    const alreadySent=sentRequests.includes(userId);
-    if(alreadySent)return;
+    if(sentRequests.includes(userId))return;
     const ok=await db.sendFriendRequest(currentUserId,userId);
     if(ok)setSentRequests(prev=>[...prev,userId]);
   };
@@ -1240,10 +1412,9 @@ export default function LotLink(){
     if(notif)setSentRequests(prev=>prev.filter(id=>id!==notif.fromId));
   };
   const handleDeleteAccount=async()=>{
-    if(!window.confirm("Delete your account? This cannot be undone. All your posts, shows, and tales will be removed."))return;
+    if(!window.confirm("Delete your account? This cannot be undone."))return;
     await db.deleteUser(currentUserId);
-    localStorage.removeItem("lotlink-uid");
-    setCurrentUserId(null);
+    localStorage.removeItem("lotlink-uid");setCurrentUserId(null);
   };
   const handleComment=async(postId,text)=>{
     const post=posts.find(p=>p.id===postId);if(!post)return;
@@ -1264,16 +1435,9 @@ export default function LotLink(){
     if(!alreadyReacted&&post.userId!==currentUserId)await db.addNotification({toId:post.userId,fromId:currentUserId,text:`${currentUser?.name} reacted to your post`,refId:String(post.id),refType:"post"});
   };
   const handleGoingToShow=async data=>{
-    // Find existing show post for this venue+date+band, add user to going[], or create new upcoming post
     const existing=posts.find(p=>p.type==="show"&&p.band===data.band&&p.venue===data.venue&&p.date===data.date);
-    if(existing){
-      const updated={...existing,going:[...(existing.going||[]).filter(x=>x!==currentUserId),currentUserId]};
-      setPosts(prev=>prev.map(p=>p.id===existing.id?updated:p));
-      await db.upsertPost(updated);
-    }else{
-      const p={id:Date.now(),userId:currentUserId,type:"show",band:data.band,date:data.date,venue:data.venue,setlist:"",notes:data.notes||"Upcoming show",rating:0,going:[currentUserId],likedBy:[],comments:[],reactions:{}};
-      await db.upsertPost(p);setPosts(prev=>[p,...prev]);
-    }
+    if(existing){const updated={...existing,going:[...(existing.going||[]).filter(x=>x!==currentUserId),currentUserId]};setPosts(prev=>prev.map(p=>p.id===existing.id?updated:p));await db.upsertPost(updated);}
+    else{const p={id:Date.now(),userId:currentUserId,type:"show",band:data.band,date:data.date,venue:data.venue,setlist:"",notes:data.notes||"Upcoming show",rating:0,going:[currentUserId],likedBy:[],comments:[],reactions:{}};await db.upsertPost(p);setPosts(prev=>[p,...prev]);}
   };
   const handleShareVideo=async(video,caption)=>{
     const p={id:Date.now(),userId:currentUserId,type:"wall",profileId:currentUserId,text:caption||"",wallImg:null,sharedVideo:video,sharedVideoId:video.id,date:new Date().toISOString().slice(0,10),likedBy:[],comments:[],reactions:{}};
@@ -1281,51 +1445,26 @@ export default function LotLink(){
   };
   const handleDeleteTale=async id=>{setTales(prev=>prev.filter(t=>t.id!==id));await db.deleteTale(id);};
   const handleNotifNavigate=n=>{
-    // Route by refType if available, otherwise fall back to text pattern matching
     const type=n.refType||(n.text?.includes("video")||n.text?.includes("Jams TV")?"jams":"post");
-    if(type==="jams"){
-      setTab("jams");
-    } else if(type==="profile"){
-      const u=users.find(u=>u.id===n.refId);if(u)setViewProfile(u);
-    } else {
-      // post — try to find the post and navigate to the author's profile or just feed
+    if(type==="jams"){setTab("jams");}
+    else if(type==="profile"){const u=users.find(u=>u.id===n.refId);if(u)setViewProfile(u);}
+    else{
       setTab("feed");
       if(n.refId){
         const post=posts.find(p=>String(p.id)===String(n.refId));
-        if(post){
-          setHighlightPostId(String(n.refId));
-          setTimeout(()=>{
-            const el=document.getElementById(`post-${n.refId}`);
-            if(el)el.scrollIntoView({behavior:"smooth",block:"center"});
-          },300);
-        }
-      } else if(n.fromId){
-        // old notif without refId — navigate to the sender's profile as best guess
-        const sender=users.find(u=>u.id===n.fromId);
-        if(sender)setViewProfile(sender);
-      }
+        if(post){setHighlightPostId(String(n.refId));setTimeout(()=>{const el=document.getElementById(`post-${n.refId}`);if(el)el.scrollIntoView({behavior:"smooth",block:"center"});},300);}
+      }else if(n.fromId){const sender=users.find(u=>u.id===n.fromId);if(sender)setViewProfile(sender);}
     }
   };
   const handleDeletePost=async id=>{setPosts(prev=>prev.filter(p=>p.id!==id));await db.deletePost(id);};
   const handleVideoReact=async(videoId,reactionKey)=>{
     const existing=videoInteractions.find(i=>i.video_id===videoId&&i.type==="reaction"&&i.user_id===currentUserId);
     if(existing){
-      if(existing.reaction_key===reactionKey){
-        await supabase.from("video_interactions").delete().eq("id",existing.id);
-        setVideoInteractions(prev=>prev.filter(i=>i.id!==existing.id));
-      } else {
-        await supabase.from("video_interactions").update({reaction_key:reactionKey}).eq("id",existing.id);
-        setVideoInteractions(prev=>prev.map(i=>i.id===existing.id?{...i,reaction_key:reactionKey}:i));
-      }
-    } else {
-      const{data}=await supabase.from("video_interactions").insert({video_id:videoId,user_id:currentUserId,type:"reaction",reaction_key:reactionKey}).select().single();
-      if(data)setVideoInteractions(prev=>[...prev,data]);
-    }
+      if(existing.reaction_key===reactionKey){await supabase.from("video_interactions").delete().eq("id",existing.id);setVideoInteractions(prev=>prev.filter(i=>i.id!==existing.id));}
+      else{await supabase.from("video_interactions").update({reaction_key:reactionKey}).eq("id",existing.id);setVideoInteractions(prev=>prev.map(i=>i.id===existing.id?{...i,reaction_key:reactionKey}:i));}
+    }else{const{data}=await supabase.from("video_interactions").insert({video_id:videoId,user_id:currentUserId,type:"reaction",reaction_key:reactionKey}).select().single();if(data)setVideoInteractions(prev=>[...prev,data]);}
   };
-  const handleVideoComment=async(videoId,text)=>{
-    const{data}=await supabase.from("video_interactions").insert({video_id:videoId,user_id:currentUserId,type:"comment",comment_text:text}).select().single();
-    if(data)setVideoInteractions(prev=>[...prev,data]);
-  };
+  const handleVideoComment=async(videoId,text)=>{const{data}=await supabase.from("video_interactions").insert({video_id:videoId,user_id:currentUserId,type:"comment",comment_text:text}).select().single();if(data)setVideoInteractions(prev=>[...prev,data]);};
   const handleView=async postId=>{
     const post=posts.find(p=>p.id===postId);if(!post)return;
     const updated={...post,views:(post.views||0)+1};
@@ -1340,38 +1479,31 @@ export default function LotLink(){
     await db.upsertUser(updated);
   };
   const handleApproveVideo=async video=>{
-    const updated={...video,approved:true};
-    setVideos(prev=>prev.map(v=>v.id===video.id?updated:v));
-    await db.upsertVideo(updated);
-    if(video.submittedBy)await db.addNotification({toId:video.submittedBy,fromId:currentUserId,text:`✓ Your video "${video.title}" was approved and is now live on Jams TV!`,refId:video.id,refType:"jams"});
+    const updated={...video,approved:true};setVideos(prev=>prev.map(v=>v.id===video.id?updated:v));await db.upsertVideo(updated);
+    if(video.submittedBy)await db.addNotification({toId:video.submittedBy,fromId:currentUserId,text:`✓ Your video "${video.title}" was approved!`,refId:video.id,refType:"jams"});
   };
   const handleRejectVideo=async video=>{
-    setVideos(prev=>prev.filter(v=>v.id!==video.id));
-    await supabase.from("videos").delete().eq("id",video.id);
+    setVideos(prev=>prev.filter(v=>v.id!==video.id));await supabase.from("videos").delete().eq("id",video.id);
     if(video.submittedBy)await db.addNotification({toId:video.submittedBy,fromId:currentUserId,text:`Your video "${video.title}" was not approved for Jams TV.`,refType:"jams"});
   };
   const handleSubmitVideo=async v=>{await db.upsertVideo(v);setVideos(prev=>[...prev,v]);};
   const handleSendDM=async(toId,text)=>{
     const msg={id:Date.now(),fromId:currentUserId,toId,text,read:false};
-    setMessages(prev=>[...prev,msg]);
-    await db.sendMessage(msg);
+    setMessages(prev=>[...prev,msg]);await db.sendMessage(msg);
     await db.addNotification({toId,fromId:currentUserId,text:`${currentUser?.name} sent you a message`});
   };
   const handleMarkDMRead=async fromId=>{setMessages(prev=>prev.map(m=>m.fromId===fromId&&m.toId===currentUserId?{...m,read:true}:m));await db.markMessagesRead(fromId,currentUserId);};
   const handleMarkNotifsRead=async()=>{
-    // Only mark non-friend-request notifs as read — friend requests stay until acted on
     setNotifications(prev=>prev.map(n=>n.text==="__FRIENDREQ__"?n:{...n,read:true}));
     await supabase.from("notifications").update({read:true}).eq("to_id",currentUserId).neq("text","__FRIENDREQ__");
   };
   const handleLogout=()=>{localStorage.removeItem("lotlink-uid");setCurrentUserId(null);};
 
   const pendingOutgoing=sentRequests;
-  const showPosts=posts.filter(p=>p.type==="show");
   const wallPosts=posts.filter(p=>p.type==="wall");
   const friendIds=(currentUser?.friends||[]);
   const feedPosts=wallPosts.filter(p=>friendIds.includes(p.userId)||p.userId===currentUserId).sort((a,b)=>new Date(b.created_at||b.date)-new Date(a.created_at||a.date));
   const friends=friendIds.map(id=>users.find(u=>u.id===id)).filter(Boolean);
-  // Only count non-friendreq notifs as unread badge (friend requests always show until acted on)
   const unreadNotifs=notifications.filter(n=>!n.read&&n.text!=="__FRIENDREQ__"&&n.text!=="__FRIENDACC__").length;
   const pendingFriendReqs=notifications.filter(n=>n.text==="__FRIENDREQ__"&&n.toId===currentUserId).length;
   const totalNotifBadge=unreadNotifs+pendingFriendReqs;
@@ -1379,6 +1511,25 @@ export default function LotLink(){
   const profileProps={posts,wallPosts,users,currentUserId,onUpdate:handleUpdateProfile,onAddWallPost:addWallPost,onLikeWall:handleLike,onCommentWall:handleComment,onDeleteWall:handleDeletePost,onAddFriend:handleSendFriendRequest,onDeleteAccount:handleDeleteAccount,pendingOutgoing,onViewProfile:setViewProfile};
   const navSetTab=t=>{setViewProfile(null);setViewGroup(null);setShowDMs(false);setTab(t);};
   const navProps={tab,setTab:navSetTab,onLogout:handleLogout,unreadNotifs:totalNotifBadge,unreadDMs,onOpenNotifs:()=>{setShowNotifs(!showNotifs);if(!showNotifs)setTimeout(handleMarkNotifsRead,1500);},onOpenDMs:()=>setShowDMs(true),onOpenSearch:()=>setShowSearch(true)};
+
+  // Story viewer navigation
+  const storyList=()=>{
+    const activeStories=stories.filter(s=>s.userId!==currentUserId);
+    const byUser={};activeStories.forEach(s=>{if(!byUser[s.userId]||new Date(s.created_at)>new Date(byUser[s.userId].created_at))byUser[s.userId]=s;});
+    return Object.values(byUser);
+  };
+  const handleViewStory=(story,list)=>setViewingStory({story,list:list||storyList()});
+  const handleNextStory=()=>{
+    if(!viewingStory)return;
+    const idx=viewingStory.list.findIndex(s=>s.userId===viewingStory.story.userId);
+    if(idx<viewingStory.list.length-1)setViewingStory({...viewingStory,story:viewingStory.list[idx+1]});
+    else setViewingStory(null);
+  };
+  const handlePrevStory=()=>{
+    if(!viewingStory)return;
+    const idx=viewingStory.list.findIndex(s=>s.userId===viewingStory.story.userId);
+    if(idx>0)setViewingStory({...viewingStory,story:viewingStory.list[idx-1]});
+  };
 
   const wrap=children=>(
     <div style={{minHeight:"100vh",background:C.bg,color:C.white,paddingBottom:isMobile?"70px":"0",backgroundImage:`radial-gradient(ellipse at 10% 0%,${C.teal}0A 0%,transparent 40%),radial-gradient(ellipse at 90% 100%,${C.green}08 0%,transparent 40%)`}}>
@@ -1389,6 +1540,8 @@ export default function LotLink(){
       {showSearch&&<SearchOverlay users={users} posts={posts} videos={videos} onClose={()=>setShowSearch(false)} onViewProfile={u=>{setViewProfile(u);navSetTab("feed");}} onViewGroup={b=>{setViewGroup(b);}} onPlayVideo={v=>setSearchPlayingVideo(v)}/>}
       <VideoPlayer video={searchPlayingVideo} onClose={()=>setSearchPlayingVideo(null)}/>
       {shareVideoTarget&&<ShareVideoModal video={shareVideoTarget} onShare={handleShareVideo} onClose={()=>setShareVideoTarget(null)}/>}
+      {viewingStory&&<StoryViewer story={viewingStory.story} allStories={viewingStory.list} users={users} currentUserId={currentUserId} onClose={()=>setViewingStory(null)} onNext={handleNextStory} onPrev={handlePrevStory}/>}
+      {showAddStory&&<AddStoryModal onAdd={handleAddStory} onClose={()=>setShowAddStory(false)} currentUser={currentUser}/>}
     </div>
   );
 
@@ -1399,7 +1552,6 @@ export default function LotLink(){
   return wrap(
     <div style={{maxWidth:"720px",margin:"0 auto",padding:"24px 20px"}}>
       {tab==="feed"&&(<>
-        {/* Disclaimer popup */}
         {showDisclaimer&&<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.75)",zIndex:400,display:"flex",alignItems:"center",justifyContent:"center",padding:"24px",backdropFilter:"blur(6px)"}}>
           <div style={{background:C.bgCard,border:`1px solid ${C.teal}55`,borderRadius:"24px",padding:"28px 28px 24px",maxWidth:"420px",width:"100%",boxShadow:`0 16px 48px rgba(0,0,0,0.6), 0 0 40px ${C.teal}22`}}>
             <div style={{textAlign:"center",marginBottom:"18px"}}>
@@ -1408,26 +1560,34 @@ export default function LotLink(){
               <div style={{color:C.mutedDim,fontFamily:T.body,fontSize:"12px"}}>A heads-only social network</div>
             </div>
             <div style={{background:C.bgDeep,border:`1px solid ${C.border}`,borderRadius:"14px",padding:"14px 16px",marginBottom:"18px"}}>
-              <p style={{color:C.sandDim,fontFamily:T.body,fontSize:"13px",lineHeight:"1.7",margin:"0 0 10px"}}>
-                🔒 <strong style={{color:C.white}}>This app is owned by Jacob Epps.</strong> Unauthorized use, copying, or modification of this application is not permitted.
-              </p>
-              <p style={{color:C.sandDim,fontFamily:T.body,fontSize:"13px",lineHeight:"1.7",margin:0}}>
-                🚧 LotLink is <strong style={{color:C.gold}}>actively under construction</strong> — things may change or break from time to time. If you run into any issues, please DM <span style={{color:C.teal,fontWeight:"700"}}>BoogMagoo</span> and let me know!
-              </p>
+              <p style={{color:C.sandDim,fontFamily:T.body,fontSize:"13px",lineHeight:"1.7",margin:"0 0 10px"}}>🔒 <strong style={{color:C.white}}>This app is owned by Jacob Epps.</strong> Unauthorized use, copying, or modification is not permitted.</p>
+              <p style={{color:C.sandDim,fontFamily:T.body,fontSize:"13px",lineHeight:"1.7",margin:0}}>🚧 LotLink is <strong style={{color:C.gold}}>actively under construction</strong> — things may change or break. DM <span style={{color:C.teal,fontWeight:"700"}}>BoogMagoo</span> with any issues!</p>
             </div>
             <Btn onClick={()=>setShowDisclaimer(false)} style={{width:"100%",justifyContent:"center"}}>Let's go 〜 🤙</Btn>
           </div>
         </div>}
+
+        {/* Stories bar */}
+        <StoriesBar
+          stories={stories}
+          users={users}
+          currentUserId={currentUserId}
+          onAddStory={()=>setShowAddStory(true)}
+          onViewStory={handleViewStory}
+        />
+
         {/* Post composer */}
         <div style={{background:C.bgCard,border:`1px solid ${C.border}`,borderRadius:"20px",padding:"16px 18px",marginBottom:"20px",display:"flex",gap:"12px",alignItems:"center",cursor:"pointer"}} onClick={()=>setShowAddPost(true)}>
           <Avatar user={currentUser} size={40}/>
           <div style={{flex:1,background:C.bgDeep,borderRadius:"24px",padding:"11px 18px",color:C.mutedDim,fontFamily:T.body,fontSize:"14px"}}>What's on your mind?</div>
           <Btn onClick={e=>{e.stopPropagation();setShowAddPost(true);}} small>Post</Btn>
         </div>
+
         {feedPosts.length===0
           ?<Empty>{friends.length===0?"Add some friends to see their posts here 〜":"No posts yet — be the first to share something!"}</Empty>
           :<div style={{display:"flex",flexDirection:"column",gap:"14px"}}>{feedPosts.map(p=>{const isHighlight=String(p.id)===String(highlightPostId);if(isHighlight)setTimeout(()=>setHighlightPostId(null),3000);return<WallCard key={p.id} post={p} users={users} currentUserId={currentUserId} onLike={handleLike} onReact={handleReact} onComment={handleComment} onDelete={handleDeletePost} onShareVideo={v=>setSearchPlayingVideo(v)} onViewProfile={setViewProfile} onView={handleView} highlight={isHighlight}/>;})}</div>}
       </>)}
+
       {tab==="groups"&&(<>
         <div style={{color:C.muted,fontFamily:T.head,fontSize:"11px",letterSpacing:"3px",fontWeight:"700",marginBottom:"16px"}}>BAND GROUPS</div>
         <div style={{display:"flex",flexDirection:"column",gap:"10px"}}>
@@ -1445,13 +1605,20 @@ export default function LotLink(){
           })}
         </div>
       </>)}
+
       {tab==="jams"&&<JamsTV videos={videos} currentUserId={currentUserId} onSubmitVideo={handleSubmitVideo} onShareVideo={v=>setShareVideoTarget(v)} users={users} onApproveVideo={handleApproveVideo} onRejectVideo={handleRejectVideo}/>}
+
       {tab==="crew"&&(<>
         <div style={{color:C.muted,fontFamily:T.head,fontSize:"11px",letterSpacing:"3px",fontWeight:"700",marginBottom:"16px"}}>YOUR LOT CREW ({friends.length})</div>
         {friends.length===0?<Empty>No friends yet. Add them from the feed.</Empty>
           :<div style={{display:"flex",flexDirection:"column",gap:"8px",marginBottom:"28px"}}>{friends.map(u=>(
             <div key={u.id} onClick={()=>setViewProfile(u)} style={{background:C.bgCard,border:`1px solid ${C.border}`,borderRadius:"18px",padding:"14px 18px",display:"flex",alignItems:"center",gap:"14px",cursor:"pointer"}}>
-              <Avatar user={u} size={44}/><div style={{flex:1}}><div style={{color:C.white,fontFamily:T.head,fontSize:"14px",fontWeight:"700"}}>{u.name}</div><BandTag bandId={u.favBand} small/></div>
+              <Avatar user={u} size={44} showStatus/>
+              <div style={{flex:1}}>
+                <div style={{color:C.white,fontFamily:T.head,fontSize:"14px",fontWeight:"700"}}>{u.name}</div>
+                {u.status&&<div style={{color:C.teal,fontFamily:T.head,fontSize:"11px",fontWeight:"700",marginBottom:"3px"}}>"{u.status}"</div>}
+                <BandTag bandId={u.favBand} small/>
+              </div>
               <div style={{textAlign:"right"}}><div style={{color:C.teal,fontFamily:T.display,fontSize:"20px",fontWeight:"700"}}>{posts.filter(p=>p.userId===u.id&&p.type==="show").length}</div><div style={{color:C.mutedDim,fontFamily:T.head,fontSize:"9px",fontWeight:"700",letterSpacing:"1px"}}>SHOWS</div></div>
             </div>
           ))}</div>}
@@ -1460,12 +1627,18 @@ export default function LotLink(){
           {users.filter(u=>u.id!==currentUserId&&!friends.find(f=>f.id===u.id)).length===0?<Empty>No other users yet.</Empty>
             :users.filter(u=>u.id!==currentUserId&&!friends.find(f=>f.id===u.id)).map(u=>(
               <div key={u.id} onClick={()=>setViewProfile(u)} style={{background:C.bgCard,border:`1px solid ${C.border}`,borderRadius:"18px",padding:"14px 18px",display:"flex",alignItems:"center",gap:"12px",cursor:"pointer"}}>
-                <Avatar user={u} size={38}/><div style={{flex:1}}><div style={{color:C.sandDim,fontFamily:T.head,fontSize:"13px",fontWeight:"700"}}>{u.name}</div><BandTag bandId={u.favBand} small/></div>
+                <Avatar user={u} size={38} showStatus/>
+                <div style={{flex:1}}>
+                  <div style={{color:C.sandDim,fontFamily:T.head,fontSize:"13px",fontWeight:"700"}}>{u.name}</div>
+                  {u.status&&<div style={{color:C.teal,fontFamily:T.head,fontSize:"11px",fontWeight:"700"}}>"{u.status}"</div>}
+                  <BandTag bandId={u.favBand} small/>
+                </div>
                 <Btn onClick={e=>{e.stopPropagation();handleSendFriendRequest(u.id);}} disabled={pendingOutgoing.includes(u.id)} small>{pendingOutgoing.includes(u.id)?"⏳ Sent":"+ Add"}</Btn>
               </div>
             ))}
         </div>
       </>)}
+
       {tab==="me"&&currentUser&&<ProfilePage user={currentUser} {...profileProps} onBack={()=>setTab("feed")} onSendDM={()=>setShowDMs(true)}/>}
       {showAddPost&&<AddWallPostModal onAdd={data=>addWallPost({...data,profileId:currentUserId})} onClose={()=>setShowAddPost(false)}/>}
     </div>
