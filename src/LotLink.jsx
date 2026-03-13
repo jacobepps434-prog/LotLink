@@ -40,7 +40,7 @@ const db={
   },
   async getPosts(){
     const{data}=await supabase.from("posts").select("*").order("created_at",{ascending:false});
-    return(data||[]).map(p=>({...p,userId:p.user_id,profileId:p.profile_id,wallImg:p.wall_img,likedBy:p.liked_by||[],comments:p.comments||[],reactions:p.reactions||{},going:p.going||[],sharedVideo:p.shared_video||null,sharedVideoId:p.shared_video?.id||null}));
+    return(data||[]).map(p=>({...p,userId:p.user_id,profileId:p.profile_id,wallImg:p.wall_img,likedBy:p.liked_by||[],comments:p.comments||[],reactions:p.reactions||{},going:p.going||[],sharedVideo:p.shared_video||null,sharedVideoId:p.shared_video?.id||null,expiresAt:p.expires_at||null,imgData:p.wall_img||null,...(p.notes&&p.notes.startsWith("{")?JSON.parse(p.notes):{})}));
   },
   async upsertPost(p){
     await supabase.from("posts").upsert({id:p.id,user_id:p.userId,type:p.type,band:p.band,date:p.date,venue:p.venue,setlist:p.setlist,notes:p.notes,rating:p.rating,profile_id:p.profileId,text:p.text,wall_img:p.wallImg,liked_by:p.likedBy||[],comments:p.comments||[],reactions:p.reactions||{},going:p.going||[],shared_video:p.sharedVideo||null,expires_at:p.expiresAt||null});
@@ -770,8 +770,134 @@ function VideoPlayer({video,onClose}){
   );
 }
 
+// ── PODCAST ───────────────────────────────────────────────────────────────────
+const PLACEHOLDER_EPISODES=[
+  {id:"ep1",title:"Episode 1 — Welcome to LotLink",desc:"BoogMagoo kicks off the LotLink Podcast with a look at the jam scene in 2025, what LotLink is all about, and why we built it.",duration:"42:00",date:"2025-03-01",official:true,embedUrl:"",host:"BoogMagoo",approved:true},
+  {id:"ep2",title:"Episode 2 — Top Phish Runs of the Decade",desc:"Breaking down the best multi-night runs Phish has had in the last 10 years — Dick's, Baker's Dozen, and more.",duration:"58:00",date:"2025-03-15",official:true,embedUrl:"",host:"BoogMagoo",approved:true},
+];
+
+function PodcastEpisodeCard({ep,isAdmin,onApprove,onReject,onPlay,playing}){
+  const isPlaying=playing?.id===ep.id;
+  return(
+    <div style={{background:C.bgCard,border:`1px solid ${isPlaying?C.teal:C.border}`,borderRadius:"20px",overflow:"hidden",transition:"box-shadow 0.2s",boxShadow:isPlaying?`0 0 0 2px ${C.teal},0 8px 30px ${C.teal}22`:"0 4px 20px rgba(0,0,0,0.2)"}}>
+      <div style={{padding:"18px 20px"}}>
+        <div style={{display:"flex",gap:"14px",alignItems:"flex-start"}}>
+          {/* Play button */}
+          <button onClick={()=>onPlay(isPlaying?null:ep)} style={{width:"52px",height:"52px",borderRadius:"50%",background:isPlaying?G.teal:`${C.teal}22`,border:`2px solid ${C.teal}`,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,transition:"all 0.2s"}}>
+            <span style={{color:isPlaying?C.bgDeep:C.teal,fontSize:"20px",marginLeft:isPlaying?"0":"3px"}}>{isPlaying?"■":"▶"}</span>
+          </button>
+          <div style={{flex:1,minWidth:0}}>
+            <div style={{display:"flex",gap:"8px",alignItems:"center",marginBottom:"4px",flexWrap:"wrap"}}>
+              {ep.official&&<span style={{background:`${C.teal}22`,border:`1px solid ${C.teal}44`,color:C.teal,fontSize:"9px",fontFamily:T.head,fontWeight:"700",padding:"2px 8px",borderRadius:"20px",letterSpacing:"1px"}}>LOTLINK OFFICIAL</span>}
+              {!ep.official&&<span style={{background:`${C.aqua}15`,border:`1px solid ${C.aqua}44`,color:C.aqua,fontSize:"9px",fontFamily:T.head,fontWeight:"700",padding:"2px 8px",borderRadius:"20px",letterSpacing:"1px"}}>COMMUNITY</span>}
+              {!ep.approved&&<span style={{background:`${C.gold}15`,border:`1px solid ${C.gold}44`,color:C.gold,fontSize:"9px",fontFamily:T.head,fontWeight:"700",padding:"2px 8px",borderRadius:"20px",letterSpacing:"1px"}}>PENDING</span>}
+            </div>
+            <div style={{color:C.white,fontFamily:T.head,fontSize:"15px",fontWeight:"700",lineHeight:"1.3",marginBottom:"6px"}}>{ep.title}</div>
+            <div style={{color:C.muted,fontFamily:T.body,fontSize:"13px",lineHeight:"1.6",marginBottom:"8px"}}>{ep.desc}</div>
+            <div style={{display:"flex",gap:"14px",alignItems:"center",flexWrap:"wrap"}}>
+              {ep.host&&<span style={{color:C.sandDim,fontFamily:T.head,fontSize:"11px",fontWeight:"700"}}>🎙 {ep.host}</span>}
+              {ep.duration&&<span style={{color:C.mutedDim,fontFamily:T.mono,fontSize:"11px"}}>⏱ {ep.duration}</span>}
+              {ep.date&&<span style={{color:C.mutedDim,fontFamily:T.mono,fontSize:"11px"}}>{ep.date}</span>}
+            </div>
+          </div>
+        </div>
+        {/* Embed player */}
+        {isPlaying&&ep.embedUrl&&(
+          <div style={{marginTop:"16px",borderRadius:"14px",overflow:"hidden",background:C.bgDeep,border:`1px solid ${C.border}`}}>
+            <iframe src={ep.embedUrl} width="100%" height="166" scrolling="no" frameBorder="no" allow="autoplay" style={{display:"block"}} title={ep.title}/>
+          </div>
+        )}
+        {isPlaying&&!ep.embedUrl&&(
+          <div style={{marginTop:"16px",background:C.bgDeep,border:`1px solid ${C.border}`,borderRadius:"14px",padding:"20px",textAlign:"center"}}>
+            <div style={{fontSize:"28px",marginBottom:"8px"}}>🎙</div>
+            <div style={{color:C.mutedDim,fontFamily:T.body,fontSize:"13px",fontStyle:"italic"}}>Episode coming soon — drop a SoundCloud link to go live!</div>
+          </div>
+        )}
+        {isAdmin&&!ep.approved&&(
+          <div style={{display:"flex",gap:"8px",marginTop:"14px"}}>
+            <button onClick={()=>onApprove(ep)} style={{flex:1,background:`${C.green}22`,border:`1px solid ${C.green}66`,color:C.green,borderRadius:"10px",padding:"8px",cursor:"pointer",fontFamily:T.head,fontSize:"12px",fontWeight:"700"}}>✓ Approve</button>
+            <button onClick={()=>onReject(ep)} style={{flex:1,background:`${C.error}15`,border:`1px solid ${C.error}44`,color:C.error,borderRadius:"10px",padding:"8px",cursor:"pointer",fontFamily:T.head,fontSize:"12px",fontWeight:"700"}}>✕ Reject</button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function PodcastTab({currentUserId}){
+  const isAdmin=currentUserId===ADMIN_ID;
+  const[episodes,setEpisodes]=useState(PLACEHOLDER_EPISODES);
+  const[playing,setPlaying]=useState(null);
+  const[showSubmit,setShowSubmit]=useState(false);
+  const[filter,setFilter]=useState("all");
+  const[form,setForm]=useState({title:"",desc:"",embedUrl:"",host:"",duration:"",date:""});
+  const approved=episodes.filter(e=>e.approved);
+  const pending=episodes.filter(e=>!e.approved);
+  const filtered=filter==="all"?approved:filter==="official"?approved.filter(e=>e.official):approved.filter(e=>!e.official);
+  const handleApprove=ep=>setEpisodes(prev=>prev.map(e=>e.id===ep.id?{...e,approved:true}:e));
+  const handleReject=ep=>setEpisodes(prev=>prev.filter(e=>e.id!==ep.id));
+  const handleSubmit=()=>{
+    if(!form.title.trim())return;
+    const newEp={id:"ep"+Date.now(),title:form.title,desc:form.desc,embedUrl:form.embedUrl,host:form.host,duration:form.duration,date:form.date||new Date().toISOString().slice(0,10),official:false,approved:isAdmin};
+    setEpisodes(prev=>[...prev,newEp]);
+    setForm({title:"",desc:"",embedUrl:"",host:"",duration:"",date:""});
+    setShowSubmit(false);
+  };
+  return(
+    <div>
+      {/* Header */}
+      <div style={{background:`linear-gradient(135deg,${C.bgCard},${C.bgDeep})`,border:`1px solid ${C.teal}33`,borderRadius:"20px",padding:"24px",marginBottom:"20px",display:"flex",gap:"20px",alignItems:"center",flexWrap:"wrap"}}>
+        <div style={{width:"64px",height:"64px",borderRadius:"20px",background:G.teal,display:"flex",alignItems:"center",justifyContent:"center",fontSize:"32px",flexShrink:0,boxShadow:`0 8px 24px ${C.teal}44`}}>🎙</div>
+        <div style={{flex:1}}>
+          <div style={{color:C.teal,fontFamily:T.head,fontSize:"10px",letterSpacing:"3px",fontWeight:"700",marginBottom:"4px"}}>THE LOTLINK PODCAST</div>
+          <div style={{color:C.white,fontFamily:T.display,fontSize:"22px",fontWeight:"700",marginBottom:"4px"}}>Talking Jams with BoogMagoo</div>
+          <div style={{color:C.muted,fontFamily:T.body,fontSize:"13px"}}>Deep dives into the jam scene — shows, bands, lot stories, and more.</div>
+        </div>
+        <Btn onClick={()=>setShowSubmit(true)} variant="secondary" small>+ Submit Episode</Btn>
+      </div>
+
+      {/* Admin pending */}
+      {isAdmin&&pending.length>0&&(
+        <div style={{background:C.bgCard,border:`1px solid ${C.gold}44`,borderRadius:"20px",padding:"18px 20px",marginBottom:"20px"}}>
+          <div style={{color:C.gold,fontFamily:T.head,fontSize:"10px",letterSpacing:"2px",fontWeight:"700",marginBottom:"14px"}}>⚙ ADMIN — PENDING EPISODES ({pending.length})</div>
+          <div style={{display:"flex",flexDirection:"column",gap:"12px"}}>{pending.map(ep=><PodcastEpisodeCard key={ep.id} ep={ep} isAdmin onApprove={handleApprove} onReject={handleReject} onPlay={setPlaying} playing={playing}/>)}</div>
+        </div>
+      )}
+
+      {/* Filters */}
+      <div style={{display:"flex",gap:"8px",marginBottom:"16px"}}>
+        {[["all","All"],["official","Official"],["community","Community"]].map(([id,label])=>(
+          <button key={id} onClick={()=>setFilter(id)} style={filterPill(filter===id,C.teal)}>{label}</button>
+        ))}
+      </div>
+
+      {/* Episode list */}
+      {filtered.length===0?<Empty>No episodes here yet 〜</Empty>
+        :<div style={{display:"flex",flexDirection:"column",gap:"12px"}}>{filtered.map(ep=><PodcastEpisodeCard key={ep.id} ep={ep} isAdmin={isAdmin} onApprove={handleApprove} onReject={handleReject} onPlay={e=>setPlaying(playing?.id===e?.id?null:e)} playing={playing}/>)}</div>}
+
+      {/* Submit modal */}
+      {showSubmit&&(
+        <Modal title="🎙 Submit a Podcast Episode" onClose={()=>setShowSubmit(false)}>
+          <div style={{display:"flex",flexDirection:"column",gap:"14px"}}>
+            <div><Label>Episode Title</Label><input placeholder="e.g. Best Phish Runs of 2024" value={form.title} onChange={e=>setForm(f=>({...f,title:e.target.value}))} style={inp()}/></div>
+            <div><Label>Description</Label><textarea placeholder="What's this episode about?" value={form.desc} onChange={e=>setForm(f=>({...f,desc:e.target.value}))} style={{...inp(),height:"80px",resize:"vertical"}}/></div>
+            <div><Label>SoundCloud Embed URL</Label><input placeholder="https://w.soundcloud.com/player/?url=..." value={form.embedUrl} onChange={e=>setForm(f=>({...f,embedUrl:e.target.value}))} style={inp()}/></div>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"10px"}}>
+              <div><Label>Your Name / Handle</Label><input placeholder="e.g. BoogMagoo" value={form.host} onChange={e=>setForm(f=>({...f,host:e.target.value}))} style={inp()}/></div>
+              <div><Label>Duration</Label><input placeholder="e.g. 42:00" value={form.duration} onChange={e=>setForm(f=>({...f,duration:e.target.value}))} style={inp()}/></div>
+            </div>
+            <div style={{background:`${C.teal}12`,border:`1px solid ${C.teal}33`,borderRadius:"12px",padding:"12px 14px",color:C.sandDim,fontFamily:T.body,fontSize:"13px"}}>🎙 Community episodes are reviewed before going live. Paste your SoundCloud embed URL for instant playback in the app.</div>
+            <Btn onClick={handleSubmit} disabled={!form.title.trim()}>Submit for Review →</Btn>
+          </div>
+        </Modal>
+      )}
+    </div>
+  );
+}
+
 // ── JAMS TV ───────────────────────────────────────────────────────────────────
 function JamsTV({videos,currentUserId,onSubmitVideo,onShareVideo,users,onApproveVideo,onRejectVideo}){
+  const[jamsTab,setJamsTab]=useState("videos");
   const[filter,setFilter]=useState("all");
   const[playing,setPlaying]=useState(null);
   const[showSubmit,setShowSubmit]=useState(false);
@@ -800,40 +926,52 @@ function JamsTV({videos,currentUserId,onSubmitVideo,onShareVideo,users,onApprove
   return(
     <div style={{maxWidth:"900px",margin:"0 auto",padding:"24px 20px"}}>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",flexWrap:"wrap",gap:"12px",marginBottom:"20px"}}>
-        <div><h1 style={{color:C.white,fontFamily:T.display,fontSize:"28px",fontWeight:"700",margin:"0 0 6px"}}>🎬 Jams TV</h1><p style={{color:C.muted,fontFamily:T.body,fontSize:"14px",margin:0}}>Curated highlights from the lot</p></div>
+        <div><h1 style={{color:C.white,fontFamily:T.display,fontSize:"28px",fontWeight:"700",margin:"0 0 6px"}}>🎬 Jams TV</h1><p style={{color:C.muted,fontFamily:T.body,fontSize:"14px",margin:0}}>Videos & Podcast from the lot</p></div>
         <div style={{display:"flex",gap:"8px"}}>
-          {isAdmin&&<Btn onClick={()=>setAdminTab(t=>t?null:"pending")} variant="ghost" small style={{borderColor:C.gold+"66",color:C.gold}}>⚙ Admin {pending.length>0&&<span style={{background:C.gold,color:C.bgDeep,borderRadius:"10px",padding:"1px 6px",fontSize:"10px",marginLeft:"4px"}}>{pending.length}</span>}</Btn>}
-          <Btn onClick={()=>setShowSubmit(true)} variant="secondary" small>+ Submit a Video</Btn>
+          {isAdmin&&jamsTab==="videos"&&<Btn onClick={()=>setAdminTab(t=>t?null:"pending")} variant="ghost" small style={{borderColor:C.gold+"66",color:C.gold}}>⚙ Admin {pending.length>0&&<span style={{background:C.gold,color:C.bgDeep,borderRadius:"10px",padding:"1px 6px",fontSize:"10px",marginLeft:"4px"}}>{pending.length}</span>}</Btn>}
+          {jamsTab==="videos"&&<Btn onClick={()=>setShowSubmit(true)} variant="secondary" small>+ Submit a Video</Btn>}
         </div>
       </div>
-      {isAdmin&&adminTab&&(
-        <div style={{background:C.bgCard,border:`1px solid ${C.gold}44`,borderRadius:"20px",padding:"20px",marginBottom:"24px"}}>
-          <div style={{color:C.gold,fontFamily:T.head,fontSize:"10px",letterSpacing:"2px",fontWeight:"700",marginBottom:"14px"}}>⚙ ADMIN — VIDEO REVIEW</div>
-          {pending.length===0?<div style={{color:C.mutedDim,fontFamily:T.body,fontSize:"13px",fontStyle:"italic"}}>No videos pending review 〜</div>
-            :<div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(240px,1fr))",gap:"14px"}}>{pending.map(v=><VideoCard key={v.id} video={v} onPlay={handlePlay} users={users} onApprove={onApproveVideo} onReject={onRejectVideo} interactions={interactions} currentUserId={currentUserId}/>)}</div>}
-        </div>
-      )}
-      <div style={{display:"flex",gap:"8px",flexWrap:"wrap",marginBottom:"24px"}}>
-        <button onClick={()=>setFilter("all")} style={filterPill(filter==="all",C.teal)}>All</button>
-        {BANDS.map(b=><button key={b.id} onClick={()=>setFilter(b.id)} style={filterPill(filter===b.id,b.color)}>{b.name.split(" ")[0]}</button>)}
-        <button onClick={()=>setFilter("collab")} style={filterPill(filter==="collab",C.gold)}>Collabs</button>
+
+      {/* Sub-tabs */}
+      <div style={{display:"flex",gap:"4px",background:C.bgDeep,borderRadius:"16px",padding:"4px",marginBottom:"24px",width:"fit-content"}}>
+        {[["videos","🎬 Videos"],["podcast","🎙 Podcast"]].map(([id,label])=>(
+          <button key={id} onClick={()=>setJamsTab(id)} style={{padding:"9px 20px",border:"none",cursor:"pointer",borderRadius:"12px",fontFamily:T.head,fontSize:"13px",fontWeight:"700",background:jamsTab===id?G.teal:"none",color:jamsTab===id?C.bgDeep:C.muted,transition:"all 0.2s"}}>{label}</button>
+        ))}
       </div>
-      {filtered.length===0?<Empty>No videos here yet!</Empty>
-        :<div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(260px,1fr))",gap:"16px"}}>{filtered.map(v=><VideoCard key={v.id} video={v} onPlay={handlePlay} onShare={onShareVideo} users={users} interactions={interactions} currentUserId={currentUserId} onReact={handleReact} onOpenComments={setCommentVideo}/>)}</div>}
-      <VideoPlayer video={playing} onClose={()=>setPlaying(null)}/>
-      {commentVideo&&<VideoCommentsModal video={commentVideo} interactions={interactions} users={users} currentUserId={currentUserId} onAddComment={handleAddComment} onClose={()=>setCommentVideo(null)}/>}
-      {showSubmit&&(
-        <Modal title="Submit a Video" onClose={()=>setShowSubmit(false)}>
-          <div style={{display:"flex",flexDirection:"column",gap:"14px"}}>
-            <div><Label>YouTube URL</Label><input placeholder="https://youtube.com/watch?v=..." value={form.url} onChange={e=>setForm(f=>({...f,url:e.target.value}))} style={inp()}/></div>
-            <div><Label>Band</Label><select value={form.bandId} onChange={e=>setForm(f=>({...f,bandId:e.target.value}))} style={inp()}>{BANDS.map(b=><option key={b.id} value={b.id}>{b.name}</option>)}<option value="collab">Collab / Other</option></select></div>
-            <div><Label>Title</Label><input placeholder="Song name or show title" value={form.title} onChange={e=>setForm(f=>({...f,title:e.target.value}))} style={inp()}/></div>
-            <div><Label>Date (optional)</Label><input placeholder="e.g. 12/7/1995" value={form.date} onChange={e=>setForm(f=>({...f,date:e.target.value}))} style={inp()}/></div>
-            <div style={{background:`${C.gold}15`,border:`1px solid ${C.gold}44`,borderRadius:"12px",padding:"12px 14px",color:C.sandDim,fontFamily:T.body,fontSize:"13px"}}>✦ Videos are reviewed before going live. Thanks for contributing!</div>
-            <Btn onClick={()=>{if(form.url&&form.title){const ytId=form.url.match(/[?&]v=([^&]+)/)?.[1]||form.url.split("/").pop().split("?")[0];onSubmitVideo({id:"v"+Date.now(),bandId:form.bandId,title:form.title,date:form.date,url:form.url,ytId,approved:false,submittedBy:currentUserId});setShowSubmit(false);setForm({url:"",bandId:"phish",title:"",date:""});}}}>Submit for Review</Btn>
+
+      {jamsTab==="videos"&&<>
+        {isAdmin&&adminTab&&(
+          <div style={{background:C.bgCard,border:`1px solid ${C.gold}44`,borderRadius:"20px",padding:"20px",marginBottom:"24px"}}>
+            <div style={{color:C.gold,fontFamily:T.head,fontSize:"10px",letterSpacing:"2px",fontWeight:"700",marginBottom:"14px"}}>⚙ ADMIN — VIDEO REVIEW</div>
+            {pending.length===0?<div style={{color:C.mutedDim,fontFamily:T.body,fontSize:"13px",fontStyle:"italic"}}>No videos pending review 〜</div>
+              :<div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(240px,1fr))",gap:"14px"}}>{pending.map(v=><VideoCard key={v.id} video={v} onPlay={handlePlay} users={users} onApprove={onApproveVideo} onReject={onRejectVideo} interactions={interactions} currentUserId={currentUserId}/>)}</div>}
           </div>
-        </Modal>
-      )}
+        )}
+        <div style={{display:"flex",gap:"8px",flexWrap:"wrap",marginBottom:"24px"}}>
+          <button onClick={()=>setFilter("all")} style={filterPill(filter==="all",C.teal)}>All</button>
+          {BANDS.map(b=><button key={b.id} onClick={()=>setFilter(b.id)} style={filterPill(filter===b.id,b.color)}>{b.name.split(" ")[0]}</button>)}
+          <button onClick={()=>setFilter("collab")} style={filterPill(filter==="collab",C.gold)}>Collabs</button>
+        </div>
+        {filtered.length===0?<Empty>No videos here yet!</Empty>
+          :<div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(260px,1fr))",gap:"16px"}}>{filtered.map(v=><VideoCard key={v.id} video={v} onPlay={handlePlay} onShare={onShareVideo} users={users} interactions={interactions} currentUserId={currentUserId} onReact={handleReact} onOpenComments={setCommentVideo}/>)}</div>}
+        <VideoPlayer video={playing} onClose={()=>setPlaying(null)}/>
+        {commentVideo&&<VideoCommentsModal video={commentVideo} interactions={interactions} users={users} currentUserId={currentUserId} onAddComment={handleAddComment} onClose={()=>setCommentVideo(null)}/>}
+        {showSubmit&&(
+          <Modal title="Submit a Video" onClose={()=>setShowSubmit(false)}>
+            <div style={{display:"flex",flexDirection:"column",gap:"14px"}}>
+              <div><Label>YouTube URL</Label><input placeholder="https://youtube.com/watch?v=..." value={form.url} onChange={e=>setForm(f=>({...f,url:e.target.value}))} style={inp()}/></div>
+              <div><Label>Band</Label><select value={form.bandId} onChange={e=>setForm(f=>({...f,bandId:e.target.value}))} style={inp()}>{BANDS.map(b=><option key={b.id} value={b.id}>{b.name}</option>)}<option value="collab">Collab / Other</option></select></div>
+              <div><Label>Title</Label><input placeholder="Song name or show title" value={form.title} onChange={e=>setForm(f=>({...f,title:e.target.value}))} style={inp()}/></div>
+              <div><Label>Date (optional)</Label><input placeholder="e.g. 12/7/1995" value={form.date} onChange={e=>setForm(f=>({...f,date:e.target.value}))} style={inp()}/></div>
+              <div style={{background:`${C.gold}15`,border:`1px solid ${C.gold}44`,borderRadius:"12px",padding:"12px 14px",color:C.sandDim,fontFamily:T.body,fontSize:"13px"}}>✦ Videos are reviewed before going live. Thanks for contributing!</div>
+              <Btn onClick={()=>{if(form.url&&form.title){const ytId=form.url.match(/[?&]v=([^&]+)/)?.[1]||form.url.split("/").pop().split("?")[0];onSubmitVideo({id:"v"+Date.now(),bandId:form.bandId,title:form.title,date:form.date,url:form.url,ytId,approved:false,submittedBy:currentUserId});setShowSubmit(false);setForm({url:"",bandId:"phish",title:"",date:""});}}}>Submit for Review</Btn>
+            </div>
+          </Modal>
+        )}
+      </>}
+
+      {jamsTab==="podcast"&&<PodcastTab currentUserId={currentUserId}/>}
     </div>
   );
 }
