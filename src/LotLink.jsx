@@ -43,7 +43,7 @@ const db={
     return(data||[]).map(p=>{
       let meta={};
       try{if(p.notes&&p.notes.startsWith("{"))meta=JSON.parse(p.notes);}catch(e){}
-      return{...p,userId:p.user_id,profileId:p.profile_id,wallImg:p.wall_img,likedBy:p.liked_by||[],comments:p.comments||[],reactions:p.reactions||{},going:p.going||[],sharedVideo:p.shared_video||null,sharedVideoId:p.shared_video?.id||null,expiresAt:p.expires_at||null,imgData:p.wall_img||null,storyType:meta.storyType||null,link:meta.link||"",linkTitle:meta.linkTitle||""};
+      return{...p,userId:p.user_id,profileId:p.profile_id,wallImg:p.wall_img,likedBy:p.liked_by||[],comments:p.comments||[],reactions:p.reactions||{},going:p.going||[],sharedVideo:p.shared_video||null,sharedVideoId:p.shared_video?.id||null,expiresAt:p.expires_at||null,storyType:meta.storyType||null,imgData:meta.imgData||null,link:meta.link||"",linkTitle:meta.linkTitle||""};
     });
   },
   async upsertPost(p){
@@ -220,7 +220,25 @@ function AddStoryModal({onAdd,onClose,currentUser}){
   const[link,setLink]=useState("");
   const[linkTitle,setLinkTitle]=useState("");
   const fileRef=useRef();
-  const handleImg=e=>{const file=e.target.files[0];if(!file)return;const reader=new FileReader();reader.onload=ev=>setImgData(ev.target.result);reader.readAsDataURL(file);};
+  const handleImg=e=>{
+    const file=e.target.files[0];if(!file)return;
+    const reader=new FileReader();
+    reader.onload=ev=>{
+      const img=new Image();
+      img.onload=()=>{
+        const canvas=document.createElement("canvas");
+        const MAX=800;
+        let w=img.width,h=img.height;
+        if(w>MAX){h=Math.round(h*MAX/w);w=MAX;}
+        if(h>MAX){w=Math.round(w*MAX/h);h=MAX;}
+        canvas.width=w;canvas.height=h;
+        canvas.getContext("2d").drawImage(img,0,0,w,h);
+        setImgData(canvas.toDataURL("image/jpeg",0.7));
+      };
+      img.src=ev.target.result;
+    };
+    reader.readAsDataURL(file);
+  };
   const canSubmit=(tab==="text"&&text.trim())||(tab==="photo"&&imgData)||(tab==="link"&&link.trim());
   return(
     <Modal title="📸 Add a Story" onClose={onClose}>
@@ -1521,9 +1539,12 @@ export default function LotLink(){
   const addTale=async tale=>{await db.upsertTale(tale);setTales(prev=>[tale,...prev]);};
 
   const handleAddStory=async data=>{
-    const id=Date.now();
-    const meta=JSON.stringify({storyType:data.type,link:data.link||"",linkTitle:data.linkTitle||""});
-    await supabase.from("posts").upsert({id,user_id:currentUserId,type:"story",text:data.text||"",wall_img:data.imgData||null,notes:meta,expires_at:data.expiresAt,liked_by:[],comments:[],reactions:{}});
+    const id=String(Date.now());
+    // For photo stories: store imgData as wall_img, caption in text
+    // For text/link stories: store content in text, meta in notes
+    const meta=JSON.stringify({storyType:data.type,link:data.link||"",linkTitle:data.linkTitle||"",imgData:data.type==="photo"?data.imgData||null:null});
+    const{data:saved,error}=await supabase.from("posts").upsert({id,user_id:currentUserId,type:"story",text:data.text||"",notes:meta,expires_at:data.expiresAt,liked_by:[],comments:[],reactions:{}}).select().single();
+    console.log("[story save]",saved,error);
     const p={id,userId:currentUserId,type:"story",storyType:data.type,text:data.text||"",imgData:data.imgData||null,link:data.link||"",linkTitle:data.linkTitle||"",expiresAt:data.expiresAt,date:new Date().toISOString().slice(0,10),likedBy:[],comments:[],reactions:{}};
     setPosts(prev=>[p,...prev]);
   };
